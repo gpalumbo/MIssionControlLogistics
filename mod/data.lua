@@ -3,7 +3,9 @@
 
 -- Load entity prototypes
 require("prototypes.entity.mission_control_tower")
+require("prototypes.entity.mission_control_tower_output")
 require("prototypes.entity.receiver_combinator")
+require("prototypes.entity.receiver_combinator_output")
 
 -- Load item prototypes
 require("prototypes.item.mission_control_tower")

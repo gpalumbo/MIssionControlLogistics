@@ -1,7 +1,8 @@
 -- Mission Control Tower Entity Prototype
--- Based on radar entity with circuit network capabilities
+-- Based on arithmetic combinator with separate input/output connectors (prevents feedback loops)
+-- Similar to receiver combinator design for consistency
 
-local mission_control_tower = table.deepcopy(data.raw["radar"]["radar"])
+local mission_control_tower = table.deepcopy(data.raw["arithmetic-combinator"]["arithmetic-combinator"])
 
 -- Basic properties
 mission_control_tower.name = "mission-control-tower"
@@ -9,39 +10,42 @@ mission_control_tower.minable.result = "mission-control-tower"
 mission_control_tower.icon = "__base__/graphics/icons/radar.png"
 mission_control_tower.icon_size = 64
 
--- Health and resistances (same as radar, will scale with quality)
+-- Health (250, scales with quality - same as radar spec)
 mission_control_tower.max_health = 250
 mission_control_tower.corpse = "mission-control-tower-remnants"
 mission_control_tower.dying_explosion = "radar-explosion"
 
 -- Energy consumption (300kW constant, scales with quality)
-mission_control_tower.energy_usage = "300kW"
 mission_control_tower.energy_source = {
   type = "electric",
   usage_priority = "secondary-input"
 }
+mission_control_tower.active_energy_usage = "300kW"
 
--- Circuit connector specifications (4 terminals: red in, red out, green in, green out)
--- We'll use the radar's circuit connector as a base and modify for our needs
-mission_control_tower.circuit_connector = circuit_connector_definitions["radar"]
+-- Size: 5x5 (radar-sized, much larger than standard combinator)
+mission_control_tower.collision_box = {{-2, -2}, {2, 2}}
+mission_control_tower.selection_box = {{-2.5, -2.5}, {2.5, 2.5}}
+
+-- Circuit connector specifications
+-- Inherits combinator's input/output connectors (prevents signal mixing)
 mission_control_tower.circuit_wire_max_distance = default_circuit_wire_max_distance
 
--- Minimal radar scanning (required, cannot be disabled)
--- Set to minimal values but keep > 0 to satisfy engine requirements
-mission_control_tower.energy_per_sector = "10kJ"  -- Minimal energy per sector (must be > 0)
-mission_control_tower.max_distance_of_sector_revealed = 1  -- Very small scan range
-mission_control_tower.max_distance_of_nearby_sector_revealed = 1  -- Very small nearby range
-
 -- Graphics will use radar graphics for now
--- TODO: Replace with custom graphics later
-mission_control_tower.pictures = data.raw["radar"]["radar"].pictures
+-- TODO: Replace with custom graphics later (5x5 tower with antenna)
+-- For now, scale up the combinator sprites
+mission_control_tower.sprites = data.raw["radar"]["radar"].pictures
 
--- Collision and selection
-mission_control_tower.collision_box = {{-1.2, -1.2}, {1.2, 1.2}}
-mission_control_tower.selection_box = {{-1.5, -1.5}, {1.5, 1.5}}
+-- Activity LED configuration (reuse combinator's LED system)
+mission_control_tower.activity_led_sprites = data.raw["arithmetic-combinator"]["arithmetic-combinator"].activity_led_sprites
+mission_control_tower.activity_led_light_offsets = data.raw["arithmetic-combinator"]["arithmetic-combinator"].activity_led_light_offsets
+
+-- Screen light configuration
+mission_control_tower.screen_light = data.raw["arithmetic-combinator"]["arithmetic-combinator"].screen_light
+mission_control_tower.screen_light_offsets = data.raw["arithmetic-combinator"]["arithmetic-combinator"].screen_light_offsets
 
 -- Flags to ensure proper behavior
-mission_control_tower.flags = {"placeable-player", "player-creation"}
+-- Add get-by-unit-number flag for cross-surface access
+mission_control_tower.flags = {"placeable-player", "player-creation", "get-by-unit-number"}
 
 -- Placement restrictions: planets only (not space platforms)
 mission_control_tower.surface_conditions = {
@@ -51,11 +55,13 @@ mission_control_tower.surface_conditions = {
   }
 }
 
--- Create remnants entity
+-- Create remnants entity (use radar remnants for 5x5 size)
 local mission_control_tower_remnants = table.deepcopy(data.raw["corpse"]["radar-remnants"])
 mission_control_tower_remnants.name = "mission-control-tower-remnants"
 mission_control_tower_remnants.icon = "__base__/graphics/icons/radar.png"
 mission_control_tower_remnants.icon_size = 64
+mission_control_tower_remnants.collision_box = {{-2, -2}, {2, 2}}
+mission_control_tower_remnants.selection_box = {{-2.5, -2.5}, {2.5, 2.5}}
 
 -- Extend data
 data:extend({

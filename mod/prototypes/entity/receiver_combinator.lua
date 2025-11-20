@@ -1,19 +1,19 @@
 -- Receiver Combinator Entity Prototype
--- Based on decider combinator with platform-only placement
--- We use decider-combinator as the base type since it has both input and output connections
+-- Based on arithmetic combinator with platform-only placement
+-- Arithmetic combinator has both input and output connections for bidirectional communication
 
-local receiver_combinator = table.deepcopy(data.raw["decider-combinator"]["decider-combinator"])
+local receiver_combinator = table.deepcopy(data.raw["arithmetic-combinator"]["arithmetic-combinator"])
 
 -- Basic properties
 receiver_combinator.name = "receiver-combinator"
 receiver_combinator.minable.result = "receiver-combinator"
-receiver_combinator.icon = "__base__/graphics/icons/decider-combinator.png"
+receiver_combinator.icon = "__base__/graphics/icons/arithmetic-combinator.png"
 receiver_combinator.icon_size = 64
 
 -- Health (same as arithmetic combinator spec: 150, scales with quality)
 receiver_combinator.max_health = 150
 receiver_combinator.corpse = "receiver-combinator-remnants"
-receiver_combinator.dying_explosion = "decider-combinator-explosion"
+receiver_combinator.dying_explosion = "arithmetic-combinator-explosion"
 
 -- Energy consumption (50kW base, scales with quality)
 -- Quality scaling: uncommon:40kW, rare:30kW, epic:15kW, legendary:5kW
@@ -28,20 +28,19 @@ receiver_combinator.collision_box = {{-0.35, -0.9}, {0.35, 0.9}}
 receiver_combinator.selection_box = {{-0.5, -1}, {0.5, 1}}
 
 -- Circuit connector specifications
--- Constant combinators have circuit connectors we can use
 receiver_combinator.circuit_wire_max_distance = default_circuit_wire_max_distance
 
--- Graphics will use decider combinator graphics for now
+-- Graphics will use arithmetic combinator graphics for now
 -- TODO: Replace with custom graphics (combinator with dish antenna on top)
-receiver_combinator.sprites = data.raw["decider-combinator"]["decider-combinator"].sprites
+receiver_combinator.sprites = data.raw["arithmetic-combinator"]["arithmetic-combinator"].sprites
 
 -- Activity LED configuration
-receiver_combinator.activity_led_sprites = data.raw["decider-combinator"]["decider-combinator"].activity_led_sprites
-receiver_combinator.activity_led_light_offsets = data.raw["decider-combinator"]["decider-combinator"].activity_led_light_offsets
+receiver_combinator.activity_led_sprites = data.raw["arithmetic-combinator"]["arithmetic-combinator"].activity_led_sprites
+receiver_combinator.activity_led_light_offsets = data.raw["arithmetic-combinator"]["arithmetic-combinator"].activity_led_light_offsets
 
--- Screen light configuration
-receiver_combinator.screen_light = data.raw["decider-combinator"]["decider-combinator"].screen_light
-receiver_combinator.screen_light_offsets = data.raw["decider-combinator"]["decider-combinator"].screen_light_offsets
+-- Screen light configuration (for display)
+receiver_combinator.screen_light = data.raw["arithmetic-combinator"]["arithmetic-combinator"].screen_light
+receiver_combinator.screen_light_offsets = data.raw["arithmetic-combinator"]["arithmetic-combinator"].screen_light_offsets
 
 -- Placement restrictions: space platforms only (opposite of mission control tower)
 receiver_combinator.surface_conditions = {
@@ -52,12 +51,13 @@ receiver_combinator.surface_conditions = {
 }
 
 -- Flags to ensure proper behavior
-receiver_combinator.flags = {"placeable-player", "player-creation"}
+-- Add get-by-unit-number flag so the entity can be retrieved globally
+receiver_combinator.flags = {"placeable-player", "player-creation", "get-by-unit-number"}
 
 -- Create remnants entity
-local receiver_combinator_remnants = table.deepcopy(data.raw["corpse"]["decider-combinator-remnants"])
+local receiver_combinator_remnants = table.deepcopy(data.raw["corpse"]["arithmetic-combinator-remnants"])
 receiver_combinator_remnants.name = "receiver-combinator-remnants"
-receiver_combinator_remnants.icon = "__base__/graphics/icons/decider-combinator.png"
+receiver_combinator_remnants.icon = "__base__/graphics/icons/arithmetic-combinator.png"
 receiver_combinator_remnants.icon_size = 64
 
 -- Extend data
