@@ -1,20 +1,21 @@
 --- Mission Control Tower entity management
 -- Handles creation, destruction, and lifecycle of MC towers
--- MC towers are composite entities: radar (visible) + constant combinator (hidden outputs)
+-- MC towers are composite entities: combinator (visible) + constant combinator (hidden outputs)
+-- Based on combinator design (like receiver) for separate input/output connectors
 
 local globals = require("scripts.globals")
 local network_manager = require("scripts.network_manager")
 local mission_control_tower = {}
 
 --- Create a Mission Control tower and its hidden output combinator
---- @param entity LuaEntity The radar entity just built
+--- @param entity LuaEntity The tower entity just built
 --- @param player_index uint|nil The player who built it (for undo support)
 function mission_control_tower.on_built(entity, player_index)
   if not entity or not entity.valid then
     return
   end
 
-  -- Verify this is a Mission Control tower (radar-based entity)
+  -- Verify this is a Mission Control tower (combinator-based entity)
   if entity.name ~= "mission-control-tower" then
     return
   end
@@ -59,20 +60,21 @@ function mission_control_tower.on_built(entity, player_index)
   output_combinator_green.rotatable = false
 
   -- Connect red output combinator ONLY to red wire (prevents duplication)
-  local tower_red = entity.get_wire_connector(defines.wire_connector_id.circuit_red, false)
+  -- Use combinator OUTPUT connectors (similar to receiver design)
+  local tower_output_red = entity.get_wire_connector(defines.wire_connector_id.combinator_output_red, false)
   local output_red = output_combinator_red.get_wire_connector(defines.wire_connector_id.circuit_red, false)
 
-  if tower_red and output_red then
-    output_red.connect_to(tower_red, false, defines.wire_origin.script)
+  if tower_output_red and output_red then
+    output_red.connect_to(tower_output_red, false, defines.wire_origin.script)
     log(string.format("[MC Tower] Connected RED output combinator to tower #%d", entity.unit_number))
   end
 
   -- Connect green output combinator ONLY to green wire (prevents duplication)
-  local tower_green = entity.get_wire_connector(defines.wire_connector_id.circuit_green, false)
+  local tower_output_green = entity.get_wire_connector(defines.wire_connector_id.combinator_output_green, false)
   local output_green = output_combinator_green.get_wire_connector(defines.wire_connector_id.circuit_green, false)
 
-  if tower_green and output_green then
-    output_green.connect_to(tower_green, false, defines.wire_origin.script)
+  if tower_output_green and output_green then
+    output_green.connect_to(tower_output_green, false, defines.wire_origin.script)
     log(string.format("[MC Tower] Connected GREEN output combinator to tower #%d", entity.unit_number))
   end
 
@@ -101,7 +103,7 @@ function mission_control_tower.on_built(entity, player_index)
 end
 
 --- Destroy a Mission Control tower and its hidden output combinator
---- @param entity LuaEntity The radar entity being destroyed
+--- @param entity LuaEntity The tower entity being destroyed
 function mission_control_tower.on_destroyed(entity)
   if not entity or not entity.valid then
     log("[MC Tower] on_destroyed called with invalid entity")

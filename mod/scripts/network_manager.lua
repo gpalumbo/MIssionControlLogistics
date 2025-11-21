@@ -176,32 +176,41 @@ function network_manager.update_ground_to_space()
     -- Skip if no towers on this surface
     if next(network.tower_entities) then
       surfaces_processed = surfaces_processed + 1
-      -- Read signals from the first valid tower (all towers share inputs via radar network)
-      -- Entities are stored directly, no lookup needed
-      local tower_entity = nil
+
+      -- Manual aggregation: read from ALL towers and sum their inputs
+      -- (Combinators don't auto-share signals like radars do)
+      local red_signal_tables = {}
+      local green_signal_tables = {}
+      local towers_read = 0
+
       for unit_number, entity in pairs(network.tower_entities) do
         if entity and entity.valid then
-          tower_entity = entity
-          break
+          -- Read from combinator INPUT connectors (prevents feedback from outputs)
+          local red_signals = read_signals(entity, defines.wire_connector_id.combinator_input_red)
+          local green_signals = read_signals(entity, defines.wire_connector_id.combinator_input_green)
+
+          table.insert(red_signal_tables, red_signals)
+          table.insert(green_signal_tables, green_signals)
+          towers_read = towers_read + 1
         end
       end
 
-      if tower_entity then
-        -- Read red and green signals
-        local red_signals = read_signals(tower_entity, defines.wire_connector_id.circuit_red)
-        local green_signals = read_signals(tower_entity, defines.wire_connector_id.circuit_green)
+      if towers_read > 0 then
+        -- Aggregate signals from all towers
+        local red_signals = aggregate_signals(red_signal_tables)
+        local green_signals = aggregate_signals(green_signal_tables)
 
         local red_count = count_signals(red_signals)
         local green_count = count_signals(green_signals)
 
-        -- Cache the signals
+        -- Cache the aggregated signals
         network.cached_input_signals.red = red_signals or {}
         network.cached_input_signals.green = green_signals or {}
         network.last_update = game.tick
 
         if red_count > 0 or green_count > 0 then
-          log(string.format("[Ground→Space] Surface %d: Read %d red + %d green signals from tower",
-            surface_index, red_count, green_count))
+          log(string.format("[Ground→Space] Surface %d: Aggregated %d red + %d green signals from %d towers",
+            surface_index, red_count, green_count, towers_read))
         end
 
         -- Write to all receivers currently at this surface
@@ -230,7 +239,7 @@ function network_manager.update_ground_to_space()
             end
           end
         end
-      end
+      end  -- Close "if towers_read > 0" block
     end
   end
 
