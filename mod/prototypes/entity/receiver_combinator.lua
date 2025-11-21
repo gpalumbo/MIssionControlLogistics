@@ -7,7 +7,7 @@ local receiver_combinator = table.deepcopy(data.raw["arithmetic-combinator"]["ar
 -- Basic properties
 receiver_combinator.name = "receiver-combinator"
 receiver_combinator.minable.result = "receiver-combinator"
-receiver_combinator.icon = "__base__/graphics/icons/arithmetic-combinator.png"
+receiver_combinator.icon = "__mission-control__/graphics/icons/receiver-combinator.png"
 receiver_combinator.icon_size = 64
 
 -- Health (same as arithmetic combinator spec: 150, scales with quality)
@@ -30,8 +30,9 @@ receiver_combinator.selection_box = {{-0.5, -1}, {0.5, 1}}
 -- Circuit connector specifications
 receiver_combinator.circuit_wire_max_distance = default_circuit_wire_max_distance
 
--- Graphics will use arithmetic combinator graphics for now
--- TODO: Replace with custom graphics (combinator with dish antenna on top)
+-- Graphics: Use arithmetic combinator sprites as fallback since no entity sprites exist yet
+-- Custom icon is used from mod graphics
+-- TODO: Create custom entity sprites (combinator with dish antenna on top)
 receiver_combinator.sprites = data.raw["arithmetic-combinator"]["arithmetic-combinator"].sprites
 
 -- Activity LED configuration
@@ -57,7 +58,7 @@ receiver_combinator.flags = {"placeable-player", "player-creation", "get-by-unit
 -- Create remnants entity
 local receiver_combinator_remnants = table.deepcopy(data.raw["corpse"]["arithmetic-combinator-remnants"])
 receiver_combinator_remnants.name = "receiver-combinator-remnants"
-receiver_combinator_remnants.icon = "__base__/graphics/icons/arithmetic-combinator.png"
+receiver_combinator_remnants.icon = "__mission-control__/graphics/icons/receiver-combinator.png"
 receiver_combinator_remnants.icon_size = 64
 
 -- Extend data

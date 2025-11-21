@@ -4,7 +4,7 @@ data:extend({
   {
     type = "item",
     name = "receiver-combinator",
-    icon = "__base__/graphics/icons/decider-combinator.png",
+    icon = "__mission-control__/graphics/icons/receiver-combinator.png",
     icon_size = 64,
     subgroup = "circuit-network",  -- Same as other combinators
     order = "c[combinators]-z[receiver-combinator]",  -- After other combinators in build menu
