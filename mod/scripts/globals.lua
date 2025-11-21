@@ -16,6 +16,10 @@ function globals.init()
   -- Platform location cache indexed by platform index
   -- Helps avoid repeated API calls for platform position
   storage.platform_locations = storage.platform_locations or {}
+
+  -- Player GUI states indexed by player_index
+  -- Tracks which entity GUI each player has open
+  storage.player_gui_states = storage.player_gui_states or {}
 end
 
 --- Initialize or get MC network for a surface
@@ -224,6 +228,43 @@ function globals.cleanup_invalid_entities()
   for unit_number, data in pairs(storage.receivers) do
     -- Receiver cleanup handled by on_entity_destroyed
   end
+end
+
+--- Set player GUI state (which entity GUI is open)
+--- @param player_index uint Player index
+--- @param entity LuaEntity The entity being viewed
+--- @param gui_type string Type of GUI ("receiver_combinator", "mission_control_tower", etc.)
+function globals.set_player_gui_entity(player_index, entity, gui_type)
+  if not storage.player_gui_states then
+    storage.player_gui_states = {}
+  end
+
+  storage.player_gui_states[player_index] = {
+    open_entity = entity.unit_number,
+    gui_type = gui_type
+  }
+end
+
+--- Clear player GUI state
+--- @param player_index uint Player index
+function globals.clear_player_gui_entity(player_index)
+  if not storage.player_gui_states then
+    storage.player_gui_states = {}
+    return
+  end
+
+  storage.player_gui_states[player_index] = nil
+end
+
+--- Get player GUI state
+--- @param player_index uint Player index
+--- @return table|nil GUI state {open_entity=uint, gui_type=string}
+function globals.get_player_gui_state(player_index)
+  if not storage.player_gui_states then
+    return nil
+  end
+
+  return storage.player_gui_states[player_index]
 end
 
 return globals

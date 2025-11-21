@@ -6,6 +6,7 @@ local globals = require("scripts.globals")
 local network_manager = require("scripts.network_manager")
 local mission_control_tower = require("scripts.mission_control.mission_control_tower")
 local receiver_combinator = require("scripts.receiver_combinator.receiver_combinator")
+local receiver_combinator_gui = require("scripts.receiver_combinator.gui")
 
 -- ============================================================================
 -- INITIALIZATION
@@ -183,6 +184,100 @@ script.on_event(defines.events.on_space_platform_changed_state, function(event)
       platform.name or "Unknown"))
   end
 end)
+
+-- ============================================================================
+-- GUI EVENTS
+-- ============================================================================
+
+--- Helper function to determine which GUI module to route to based on context
+local function get_gui_module_for_event(event)
+    -- For on_gui_opened, check the entity type
+    if event.entity and event.entity.valid then
+        if event.entity.name == "receiver-combinator" then
+            return receiver_combinator_gui
+        end
+        -- TODO: Add other entity types here
+        -- elseif event.entity.name == "mission-control-tower" then
+        --     return mission_control_tower_gui
+    end
+
+    -- For other events, check player's GUI state
+    if event.player_index then
+        local gui_state = globals.get_player_gui_state(event.player_index)
+        if gui_state and gui_state.gui_type then
+            if gui_state.gui_type == "receiver_combinator" then
+                return receiver_combinator_gui
+            end
+            -- TODO: Add other GUI types here
+            -- elseif gui_state.gui_type == "mission_control_tower" then
+            --     return mission_control_tower_gui
+        end
+    end
+
+    return nil
+end
+
+-- Override GUI event handlers with dispatchers that route based on entity type or GUI state
+-- This is necessary because multiple script.on_event calls for the same event will overwrite each other
+script.on_event(defines.events.on_gui_opened, function(event)
+    local gui_module = get_gui_module_for_event(event)
+    if gui_module and gui_module.on_gui_opened then
+        gui_module.on_gui_opened(event)
+    end
+end)
+
+script.on_event(defines.events.on_gui_closed, function(event)
+    local gui_module = get_gui_module_for_event(event)
+    if gui_module and gui_module.on_gui_closed then
+        gui_module.on_gui_closed(event)
+    end
+end)
+
+script.on_event(defines.events.on_gui_click, function(event)
+    local gui_module = get_gui_module_for_event(event)
+    if gui_module and gui_module.on_gui_click then
+        gui_module.on_gui_click(event)
+    end
+end)
+
+script.on_event(defines.events.on_gui_elem_changed, function(event)
+    local gui_module = get_gui_module_for_event(event)
+    if gui_module and gui_module.on_gui_elem_changed then
+        gui_module.on_gui_elem_changed(event)
+    end
+end)
+
+script.on_event(defines.events.on_gui_text_changed, function(event)
+    local gui_module = get_gui_module_for_event(event)
+    if gui_module and gui_module.on_gui_text_changed then
+        gui_module.on_gui_text_changed(event)
+    end
+end)
+
+script.on_event(defines.events.on_gui_selection_state_changed, function(event)
+    local gui_module = get_gui_module_for_event(event)
+    if gui_module and gui_module.on_gui_selection_state_changed then
+        gui_module.on_gui_selection_state_changed(event)
+    end
+end)
+
+script.on_event(defines.events.on_gui_checked_state_changed, function(event)
+    local gui_module = get_gui_module_for_event(event)
+    if gui_module and gui_module.on_gui_checked_state_changed then
+        gui_module.on_gui_checked_state_changed(event)
+    end
+end)
+
+script.on_event(defines.events.on_gui_switch_state_changed, function(event)
+    local gui_module = get_gui_module_for_event(event)
+    if gui_module and gui_module.on_gui_switch_state_changed then
+        gui_module.on_gui_switch_state_changed(event)
+    end
+end)
+
+-- ============================================================================
+-- DEBUG / REMOTE INTERFACE
+-- ============================================================================
 
   --- Get status of a receiver combinator
   --- @param unit_number uint The receiver's unit number
