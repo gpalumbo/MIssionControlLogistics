@@ -159,6 +159,12 @@ function globals.register_receiver(receiver_entity, output_entity_red, output_en
     -- Signal behavior when in transit
     hold_signal_in_transit = false,  -- If true, hold last signal; if false, clear signals
 
+    -- Cached signals from ground (for hold signal feature)
+    last_received_signals = {
+      red = {},   -- Last signals received from ground (red wire)
+      green = {}  -- Last signals received from ground (green wire)
+    },
+
     -- Cached input signals from platform circuits (updated every 15 ticks)
     cached_input_signals = {
       red = {},

@@ -165,8 +165,27 @@ local function aggregate_signals(signal_tables)
   return aggregated
 end
 
+--- Check if a surface is in the receiver's configured surfaces list
+--- @param receiver_data table Receiver data
+--- @param surface_index uint Surface index to check
+--- @return boolean True if surface is configured
+local function is_surface_configured(receiver_data, surface_index)
+  if not receiver_data or not receiver_data.configured_surfaces then
+    return false
+  end
+
+  for _, idx in ipairs(receiver_data.configured_surfaces) do
+    if idx == surface_index then
+      return true
+    end
+  end
+
+  return false
+end
+
 --- Update ground-to-space signal transmission
 --- Reads signals from Mission Control towers and writes to receiver combinators
+--- Implements hold signal logic: receivers hold last signal when enabled and not at configured surface
 function network_manager.update_ground_to_space()
   local surfaces_processed = 0
   local receivers_updated = 0
@@ -213,33 +232,73 @@ function network_manager.update_ground_to_space()
             surface_index, red_count, green_count, towers_read))
         end
 
-        -- Write to all receivers currently at this surface
+        -- Write to all receivers configured for this surface
         for receiver_unit_number, receiver_data in pairs(storage.receivers) do
           local platform = get_platform_by_index(receiver_data.platform_index)
 
           -- Check if platform is at this surface
           local platform_surface_index = get_surface_index_from_location(platform and platform.space_location)
 
-          log(string.format("[Ground→Space] Checking receiver #%d: platform_surface=%s, tower_surface=%s",
+          log(string.format("[Ground→Space] Checking receiver #%d: platform_surface=%s, tower_surface=%s, configured=%s",
             receiver_unit_number,
             platform_surface_index or "nil",
-            surface_index))
+            surface_index,
+            is_surface_configured(receiver_data, surface_index) and "yes" or "no"))
 
-          if platform_surface_index == surface_index then
-            -- Platform is orbiting this surface - write to hidden output combinators (cached references)
-            if receiver_data.output_entity_red and receiver_data.output_entity_red.valid and
-               receiver_data.output_entity_green and receiver_data.output_entity_green.valid then
-              -- Write ground signals to receiver output combinators (separate red/green)
-              write_signals_to_combinator(receiver_data.output_entity_red, red_signals, "red")
-              write_signals_to_combinator(receiver_data.output_entity_green, green_signals, "green")
-              receivers_updated = receivers_updated + 1
-              log(string.format("[Ground→Space] Wrote signals to receiver #%d", receiver_unit_number))
-            else
-              log(string.format("[Ground→Space] Receiver #%d has invalid output combinators", receiver_unit_number))
+          -- Check if this receiver is configured for this surface
+          if is_surface_configured(receiver_data, surface_index) then
+            -- Receiver is configured for this surface
+            if platform_surface_index == surface_index then
+              -- Platform is orbiting this configured surface - update and cache signals
+              if receiver_data.output_entity_red and receiver_data.output_entity_red.valid and
+                 receiver_data.output_entity_green and receiver_data.output_entity_green.valid then
+                -- Write ground signals to receiver output combinators
+                write_signals_to_combinator(receiver_data.output_entity_red, red_signals, "red")
+                write_signals_to_combinator(receiver_data.output_entity_green, green_signals, "green")
+
+                -- Cache the signals for hold signal feature
+                receiver_data.last_received_signals.red = red_signals
+                receiver_data.last_received_signals.green = green_signals
+
+                receivers_updated = receivers_updated + 1
+                log(string.format("[Ground→Space] Wrote signals to receiver #%d (at configured surface)", receiver_unit_number))
+              else
+                log(string.format("[Ground→Space] Receiver #%d has invalid output combinators", receiver_unit_number))
+              end
             end
           end
         end
       end  -- Close "if towers_read > 0" block
+    end
+  end
+
+  -- Handle receivers that are NOT at configured surfaces (hold signal logic)
+  for receiver_unit_number, receiver_data in pairs(storage.receivers) do
+    local platform = get_platform_by_index(receiver_data.platform_index)
+    local platform_surface_index = get_surface_index_from_location(platform and platform.space_location)
+
+    -- Check if receiver is at a configured surface
+    local at_configured_surface = platform_surface_index and is_surface_configured(receiver_data, platform_surface_index)
+
+    if not at_configured_surface then
+      -- Not at a configured surface (in transit or at unconfigured planet)
+      if receiver_data.hold_signal_in_transit then
+        -- Hold last signal - output cached signals
+        if receiver_data.output_entity_red and receiver_data.output_entity_red.valid and
+           receiver_data.output_entity_green and receiver_data.output_entity_green.valid then
+          write_signals_to_combinator(receiver_data.output_entity_red, receiver_data.last_received_signals.red or {}, "red")
+          write_signals_to_combinator(receiver_data.output_entity_green, receiver_data.last_received_signals.green or {}, "green")
+          log(string.format("[Ground→Space] Receiver #%d holding last signal (in transit)", receiver_unit_number))
+        end
+      else
+        -- Clear signals when not at configured surface
+        if receiver_data.output_entity_red and receiver_data.output_entity_red.valid and
+           receiver_data.output_entity_green and receiver_data.output_entity_green.valid then
+          write_signals_to_combinator(receiver_data.output_entity_red, {}, "red")
+          write_signals_to_combinator(receiver_data.output_entity_green, {}, "green")
+          log(string.format("[Ground→Space] Receiver #%d clearing signals (in transit, hold disabled)", receiver_unit_number))
+        end
+      end
     end
   end
 
