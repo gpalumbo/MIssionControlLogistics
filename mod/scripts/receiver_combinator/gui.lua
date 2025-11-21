@@ -117,14 +117,14 @@ local function create_settings_panel(parent, entity)
     -- Header
     local header = frame.add{
         type = "label",
-        caption = {"", "[font=default-semibold]Surface Configuration[/font]"}
+        caption = {"", "[font=default-semibold]", {"gui-receiver.surface-configuration"}, "[/font]"}
     }
     header.style.bottom_margin = 4
 
     -- Description
     local desc = frame.add{
         type = "label",
-        caption = "Select which planets this receiver communicates with:"
+        caption = {"gui-receiver.select-planets-description"}
     }
     desc.style.font_color = {r = 0.7, g = 0.7, b = 0.7}
     desc.style.bottom_margin = 8
@@ -140,14 +140,14 @@ local function create_settings_panel(parent, entity)
     button_flow.add{
         type = "button",
         name = GUI_NAMES.SELECT_ALL_BUTTON,
-        caption = "Select All",
+        caption = {"gui-receiver.select-all"},
         style = "button"
     }
 
     button_flow.add{
         type = "button",
         name = GUI_NAMES.CLEAR_ALL_BUTTON,
-        caption = "Clear All",
+        caption = {"gui-receiver.clear-all"},
         style = "button"
     }
 
@@ -176,7 +176,7 @@ local function create_settings_panel(parent, entity)
     if #discovered_surfaces == 0 then
         local no_surfaces_label = surfaces_table.add{
             type = "label",
-            caption = "No planets discovered yet"
+            caption = {"gui-receiver.no-planets"}
         }
         no_surfaces_label.style.font_color = {r = 0.6, g = 0.6, b = 0.6}
     else
@@ -215,9 +215,9 @@ local function create_settings_panel(parent, entity)
     local toggle_checkbox = toggle_flow.add{
         type = "checkbox",
         name = GUI_NAMES.HOLD_SIGNAL_TOGGLE,
-        caption = "Hold last signal when in transit",
+        caption = {"gui-receiver.hold-signal-toggle"},
         state = receiver_data.hold_signal_in_transit or false,
-        tooltip = "If checked, the receiver will continue outputting the last received signals when the platform is traveling. If unchecked, signals will be cleared during transit."
+        tooltip = {"gui-receiver.hold-signal-tooltip"}
     }
 
     return frame
@@ -241,13 +241,13 @@ local function create_input_signal_grid(parent, entity)
     -- Header
     local header = frame.add{
         type = "label",
-        caption = {"", "[font=default-semibold]Input Signals[/font]"}
+        caption = {"", "[font=default-semibold]", {"gui-receiver.input-signals"}, "[/font]"}
     }
     header.style.bottom_margin = 4
 
     local desc = frame.add{
         type = "label",
-        caption = "Signals from platform circuits (sent to ground)"
+        caption = {"gui-receiver.input-signals-description"}
     }
     desc.style.font_color = {r = 0.7, g = 0.7, b = 0.7}
     desc.style.bottom_margin = 4
@@ -286,13 +286,13 @@ local function create_output_signal_grid(parent, entity)
     -- Header
     local header = frame.add{
         type = "label",
-        caption = {"", "[font=default-semibold]Output Signals[/font]"}
+        caption = {"", "[font=default-semibold]", {"gui-receiver.output-signals"}, "[/font]"}
     }
     header.style.bottom_margin = 4
 
     local desc = frame.add{
         type = "label",
-        caption = "Signals from ground (received from space)"
+        caption = {"gui-receiver.output-signals-description"}
     }
     desc.style.font_color = {r = 0.7, g = 0.7, b = 0.7}
     desc.style.bottom_margin = 4
@@ -473,7 +473,7 @@ function receiver_gui.create_gui(player, entity)
                         children = {
                             {
                                 type = "label",
-                                caption = "Status: "
+                                caption = {"gui-receiver.status-label"}
                             },
                             {
                                 type = "sprite",
