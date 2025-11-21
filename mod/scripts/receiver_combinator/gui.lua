@@ -18,6 +18,12 @@ local GUI_NAMES = {
     POWER_LABEL = "receiver_combinator_power",
     POWER_SPRITE = "receiver_combinator_power_sprite",
     SETTINGS_FRAME = "receiver_combinator_settings_frame",
+    SURFACES_SCROLL = "receiver_surfaces_scroll",
+    SURFACES_TABLE = "receiver_surfaces_table",
+    SURFACE_CHECKBOX_PREFIX = "receiver_surface_checkbox_",
+    SELECT_ALL_BUTTON = "receiver_select_all",
+    CLEAR_ALL_BUTTON = "receiver_clear_all",
+    HOLD_SIGNAL_TOGGLE = "receiver_hold_signal_toggle",
     INPUT_SIGNAL_GRID_FRAME = "receiver_combinator_input_grid",
     OUTPUT_SIGNAL_GRID_FRAME = "receiver_combinator_output_grid"
 }
@@ -43,14 +49,62 @@ local function get_receiver_data_from_player(player)
     return receiver_data, receiver_data.entity
 end
 
+--- Get all discovered planets/surfaces
+--- Returns table of {surface_index, surface_name, is_planet}
+--- @return table Array of surface info
+local function get_discovered_surfaces()
+    local surfaces = {}
+
+    -- Iterate through all planets
+    for _, planet in pairs(game.planets) do
+        if planet.surface then
+            table.insert(surfaces, {
+                surface_index = planet.surface.index,
+                surface_name = planet.name,
+                is_planet = true
+            })
+        end
+    end
+
+    -- Sort by name for consistent display
+    table.sort(surfaces, function(a, b)
+        return a.surface_name < b.surface_name
+    end)
+
+    return surfaces
+end
+
+--- Check if a surface is configured for a receiver
+--- @param receiver_data table Receiver data
+--- @param surface_index uint Surface index to check
+--- @return boolean True if configured
+local function is_surface_configured(receiver_data, surface_index)
+    if not receiver_data or not receiver_data.configured_surfaces then
+        return false
+    end
+
+    for _, idx in ipairs(receiver_data.configured_surfaces) do
+        if idx == surface_index then
+            return true
+        end
+    end
+
+    return false
+end
+
 -- ============================================================================
 -- GUI CREATION FUNCTIONS
 -- ============================================================================
 
---- Create settings panel (placeholder for future configuration)
+--- Create settings panel with surface configuration
 --- @param parent LuaGuiElement Parent element
 --- @param entity LuaEntity The receiver entity
 local function create_settings_panel(parent, entity)
+    local receiver_data = storage.receivers[entity.unit_number]
+    if not receiver_data then
+        return nil
+    end
+
     local frame = parent.add{
         type = "frame",
         name = GUI_NAMES.SETTINGS_FRAME,
@@ -67,12 +121,104 @@ local function create_settings_panel(parent, entity)
     }
     header.style.bottom_margin = 4
 
-    -- Placeholder text (will be replaced with actual configuration UI)
-    local placeholder = frame.add{
+    -- Description
+    local desc = frame.add{
         type = "label",
-        caption = "Surface configuration will be added here"
+        caption = "Select which planets this receiver communicates with:"
     }
-    placeholder.style.font_color = {r = 0.6, g = 0.6, b = 0.6}
+    desc.style.font_color = {r = 0.7, g = 0.7, b = 0.7}
+    desc.style.bottom_margin = 8
+
+    -- Button row for Select All / Clear All
+    local button_flow = frame.add{
+        type = "flow",
+        direction = "horizontal"
+    }
+    button_flow.style.horizontal_spacing = 8
+    button_flow.style.bottom_margin = 8
+
+    button_flow.add{
+        type = "button",
+        name = GUI_NAMES.SELECT_ALL_BUTTON,
+        caption = "Select All",
+        style = "button"
+    }
+
+    button_flow.add{
+        type = "button",
+        name = GUI_NAMES.CLEAR_ALL_BUTTON,
+        caption = "Clear All",
+        style = "button"
+    }
+
+    -- Scroll pane for surface checkboxes
+    local scroll = frame.add{
+        type = "scroll-pane",
+        name = GUI_NAMES.SURFACES_SCROLL,
+        vertical_scroll_policy = "auto-and-reserve-space",
+        horizontal_scroll_policy = "never"
+    }
+    scroll.style.maximal_height = 200
+    scroll.style.bottom_margin = 12
+
+    -- Table for checkboxes
+    local surfaces_table = scroll.add{
+        type = "table",
+        name = GUI_NAMES.SURFACES_TABLE,
+        column_count = 1
+    }
+    surfaces_table.style.horizontally_stretchable = true
+    surfaces_table.style.vertical_spacing = 4
+
+    -- Get all discovered surfaces and create checkboxes
+    local discovered_surfaces = get_discovered_surfaces()
+
+    if #discovered_surfaces == 0 then
+        local no_surfaces_label = surfaces_table.add{
+            type = "label",
+            caption = "No planets discovered yet"
+        }
+        no_surfaces_label.style.font_color = {r = 0.6, g = 0.6, b = 0.6}
+    else
+        for _, surface_info in ipairs(discovered_surfaces) do
+            local checkbox_flow = surfaces_table.add{
+                type = "flow",
+                direction = "horizontal"
+            }
+            checkbox_flow.style.vertical_align = "center"
+
+            local checkbox = checkbox_flow.add{
+                type = "checkbox",
+                name = GUI_NAMES.SURFACE_CHECKBOX_PREFIX .. surface_info.surface_index,
+                caption = surface_info.surface_name,
+                state = is_surface_configured(receiver_data, surface_info.surface_index)
+            }
+        end
+    end
+
+    -- Separator
+    local separator = frame.add{
+        type = "line",
+        direction = "horizontal"
+    }
+    separator.style.top_margin = 8
+    separator.style.bottom_margin = 8
+
+    -- Hold signal toggle
+    local toggle_flow = frame.add{
+        type = "flow",
+        direction = "horizontal"
+    }
+    toggle_flow.style.vertical_align = "center"
+    toggle_flow.style.horizontal_spacing = 8
+
+    local toggle_checkbox = toggle_flow.add{
+        type = "checkbox",
+        name = GUI_NAMES.HOLD_SIGNAL_TOGGLE,
+        caption = "Hold last signal when in transit",
+        state = receiver_data.hold_signal_in_transit or false,
+        tooltip = "If checked, the receiver will continue outputting the last received signals when the platform is traveling. If unchecked, signals will be cleared during transit."
+    }
 
     return frame
 end
@@ -200,11 +346,63 @@ end
 -- GUI EVENT HANDLERS
 -- ============================================================================
 
+--- Refresh the settings panel to update checkbox states
+--- @param player LuaPlayer The player viewing the GUI
+local function refresh_settings_panel(player)
+    local receiver_data, entity = get_receiver_data_from_player(player)
+    if not receiver_data then return end
+
+    local frame = player.gui.screen[GUI_NAMES.MAIN_FRAME]
+    if not frame then return end
+
+    local content_frame = frame.children[2]  -- inside_shallow_frame
+    if not content_frame then return end
+
+    local settings_frame = content_frame[GUI_NAMES.SETTINGS_FRAME]
+    if settings_frame then
+        settings_frame.destroy()
+    end
+
+    -- Recreate settings panel
+    create_settings_panel(content_frame, entity)
+end
+
 --- Handler for close button click
 local gui_handlers = {
     close_button = function(event)
         local player = game.players[event.player_index]
         receiver_gui.close_gui(player)
+    end,
+
+    select_all_button = function(event)
+        local player = game.players[event.player_index]
+        local receiver_data, entity = get_receiver_data_from_player(player)
+        if not receiver_data then return end
+
+        -- Get all discovered surfaces and add them all
+        local discovered_surfaces = get_discovered_surfaces()
+        local surface_indices = {}
+
+        for _, surface_info in ipairs(discovered_surfaces) do
+            table.insert(surface_indices, surface_info.surface_index)
+        end
+
+        globals.set_receiver_surfaces(entity.unit_number, surface_indices)
+
+        -- Refresh the panel to show updated checkboxes
+        refresh_settings_panel(player)
+    end,
+
+    clear_all_button = function(event)
+        local player = game.players[event.player_index]
+        local receiver_data, entity = get_receiver_data_from_player(player)
+        if not receiver_data then return end
+
+        -- Clear all configured surfaces
+        globals.set_receiver_surfaces(entity.unit_number, {})
+
+        -- Refresh the panel to show updated checkboxes
+        refresh_settings_panel(player)
     end
 }
 
@@ -428,7 +626,55 @@ function receiver_gui.on_gui_click(event)
     -- First try FLib handlers
     flib_gui.dispatch(event)
 
-    -- Add custom click handlers here if needed
+    local element = event.element
+    if not element or not element.valid then return end
+
+    -- Handle Select All button
+    if element.name == GUI_NAMES.SELECT_ALL_BUTTON then
+        gui_handlers.select_all_button(event)
+        return
+    end
+
+    -- Handle Clear All button
+    if element.name == GUI_NAMES.CLEAR_ALL_BUTTON then
+        gui_handlers.clear_all_button(event)
+        return
+    end
+end
+
+--- Handle GUI checked state changed events
+--- @param event EventData.on_gui_checked_state_changed
+function receiver_gui.on_gui_checked_state_changed(event)
+    local element = event.element
+    if not element or not element.valid then return end
+
+    local player = game.players[event.player_index]
+    local receiver_data, entity = get_receiver_data_from_player(player)
+    if not receiver_data then return end
+
+    -- Handle surface checkbox toggle
+    if element.name:match("^" .. GUI_NAMES.SURFACE_CHECKBOX_PREFIX) then
+        -- Extract surface index from element name
+        local surface_index_str = element.name:gsub("^" .. GUI_NAMES.SURFACE_CHECKBOX_PREFIX, "")
+        local surface_index = tonumber(surface_index_str)
+
+        if surface_index then
+            if element.state then
+                -- Checkbox checked - add surface
+                globals.add_receiver_surface(entity.unit_number, surface_index)
+            else
+                -- Checkbox unchecked - remove surface
+                globals.remove_receiver_surface(entity.unit_number, surface_index)
+            end
+        end
+        return
+    end
+
+    -- Handle hold signal toggle
+    if element.name == GUI_NAMES.HOLD_SIGNAL_TOGGLE then
+        globals.set_receiver_hold_signal(entity.unit_number, element.state)
+        return
+    end
 end
 
 return receiver_gui

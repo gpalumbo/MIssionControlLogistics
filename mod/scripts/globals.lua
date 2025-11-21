@@ -153,6 +153,12 @@ function globals.register_receiver(receiver_entity, output_entity_red, output_en
     output_entity_green = output_entity_green,
     platform_index = platform.index,
 
+    -- Surface configuration: which surfaces this receiver communicates with
+    configured_surfaces = {},  -- Array of surface indices
+
+    -- Signal behavior when in transit
+    hold_signal_in_transit = false,  -- If true, hold last signal; if false, clear signals
+
     -- Cached input signals from platform circuits (updated every 15 ticks)
     cached_input_signals = {
       red = {},
@@ -175,6 +181,57 @@ end
 --- @param unit_number uint Entity unit number
 function globals.unregister_receiver(unit_number)
   storage.receivers[unit_number] = nil
+end
+
+--- Update receiver's configured surfaces
+--- @param unit_number uint Receiver entity unit number
+--- @param surface_indices table Array of surface indices
+function globals.set_receiver_surfaces(unit_number, surface_indices)
+  local receiver_data = storage.receivers[unit_number]
+  if receiver_data then
+    receiver_data.configured_surfaces = surface_indices or {}
+  end
+end
+
+--- Add a surface to receiver's configuration
+--- @param unit_number uint Receiver entity unit number
+--- @param surface_index uint Surface index to add
+function globals.add_receiver_surface(unit_number, surface_index)
+  local receiver_data = storage.receivers[unit_number]
+  if receiver_data then
+    -- Check if already configured
+    for _, idx in ipairs(receiver_data.configured_surfaces) do
+      if idx == surface_index then
+        return  -- Already configured
+      end
+    end
+    table.insert(receiver_data.configured_surfaces, surface_index)
+  end
+end
+
+--- Remove a surface from receiver's configuration
+--- @param unit_number uint Receiver entity unit number
+--- @param surface_index uint Surface index to remove
+function globals.remove_receiver_surface(unit_number, surface_index)
+  local receiver_data = storage.receivers[unit_number]
+  if receiver_data then
+    for i, idx in ipairs(receiver_data.configured_surfaces) do
+      if idx == surface_index then
+        table.remove(receiver_data.configured_surfaces, i)
+        return
+      end
+    end
+  end
+end
+
+--- Set receiver's hold signal in transit flag
+--- @param unit_number uint Receiver entity unit number
+--- @param hold_signal boolean True to hold signals in transit, false to clear
+function globals.set_receiver_hold_signal(unit_number, hold_signal)
+  local receiver_data = storage.receivers[unit_number]
+  if receiver_data then
+    receiver_data.hold_signal_in_transit = hold_signal
+  end
 end
 
 --- Update platform location cache
