@@ -30,51 +30,26 @@ mission_control_tower.selection_box = {{-2.5, -2.5}, {2.5, 2.5}}
 -- Inherits combinator's input/output connectors (prevents signal mixing)
 mission_control_tower.circuit_wire_max_distance = default_circuit_wire_max_distance
 
--- Graphics: Custom tower sprites with layered structure
--- Tower sprite is 1568x2032 (likely 7x8 spritesheet or animation frames)
--- Using layered approach similar to radar for proper rendering
-mission_control_tower.sprites = {
-  layers = {
-    -- Main tower sprite
-    {
-      filename = "__mission-control__/graphics/icons/tower.png",
-      width = 224,
-      height = 254,
-      frame_count = 1,
-      shift = {0, 0},
-      scale = 1
-    },
-    -- Shadow layer
-    {
-      filename = "__mission-control__/graphics/icons/tower-shadow.png",
-      width = 224,
-      height = 170,
-      frame_count = 1,
-      shift = {0.75, 0.5},
-      draw_as_shadow = true,
-      scale = 1
-    },
-    -- Integration layer (circuit connection visuals)
-    {
-      filename = "__mission-control__/graphics/icons/tower-integration.png",
-      width = 238,
-      height = 216,
-      frame_count = 1,
-      shift = {0, 0},
-      scale = 1
-    },
-    -- Reflection/light layer
-    {
-      filename = "__mission-control__/graphics/icons/tower-reflection.png",
-      width = 28,
-      height = 32,
-      frame_count = 1,
-      shift = {0, -1},
-      blend_mode = "additive",
-      scale = 1
-    }
-  }
-}
+-- Graphics: Copy radar's sprite structure and replace with custom tower graphics
+-- Tower graphics have the same dimensions as radar
+mission_control_tower.pictures = table.deepcopy(data.raw["radar"]["radar"].pictures)
+
+-- Replace radar filenames with custom tower graphics
+-- Main sprite layer
+if mission_control_tower.pictures.layers and mission_control_tower.pictures.layers[1] then
+  mission_control_tower.pictures.layers[1].filename = "__mission-control__/graphics/icons/tower.png"
+  if mission_control_tower.pictures.layers[1].hr_version then
+    mission_control_tower.pictures.layers[1].hr_version.filename = "__mission-control__/graphics/icons/tower.png"
+  end
+end
+
+-- Shadow layer
+if mission_control_tower.pictures.layers and mission_control_tower.pictures.layers[2] then
+  mission_control_tower.pictures.layers[2].filename = "__mission-control__/graphics/icons/tower-shadow.png"
+  if mission_control_tower.pictures.layers[2].hr_version then
+    mission_control_tower.pictures.layers[2].hr_version.filename = "__mission-control__/graphics/icons/tower-shadow.png"
+  end
+end
 
 -- Activity LED configuration (reuse combinator's LED system)
 mission_control_tower.activity_led_sprites = data.raw["arithmetic-combinator"]["arithmetic-combinator"].activity_led_sprites
