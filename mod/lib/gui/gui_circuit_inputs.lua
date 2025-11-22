@@ -5,6 +5,38 @@ local circuit_utils = require("lib.circuit_utils")
 
 local gui_circuit_inputs = {}
 
+--- Convert SignalID to sprite path for GUI display
+--- @param signal_id table SignalID with type and name
+--- @return string|nil Sprite path or nil if invalid
+local function signal_id_to_sprite(signal_id)
+    if not signal_id or not signal_id.name then
+        return nil
+    end
+
+    -- Map SignalID type to sprite type prefix
+    -- IMPORTANT: "virtual" signals use "virtual-signal" sprite prefix!
+    local signal_type = signal_id.type or "item"
+
+    local sprite_type_map = {
+        virtual = "virtual-signal",  -- Maps "virtual" → "virtual-signal"
+        item = "item",
+        fluid = "fluid",
+        entity = "entity",
+        recipe = "recipe",
+        quality = "quality",
+        ["space-location"] = "space-location",
+        ["asteroid-chunk"] = "asteroid-chunk"
+    }
+
+    local sprite_prefix = sprite_type_map[signal_type]
+    if not sprite_prefix then
+        -- Unknown type, default to item
+        sprite_prefix = "item"
+    end
+
+    return sprite_prefix .. "/" .. signal_id.name
+end
+
 --- Create signal grid sub-display for red or green wire signals
 --- @param parent LuaGuiElement Parent element to add the scroll pane to
 --- @param signals table Array of signal data with wire_color field
@@ -40,8 +72,11 @@ function gui_circuit_inputs.create_signal_sub_grid(parent, signals, grid_table_n
             goto continue
         end
 
-        local signal_type = sig_data.signal_id.type or "item"
-        local sprite_path = signal_type .. "/" .. sig_data.signal_id.name
+        -- Convert SignalID to sprite path
+        local sprite_path = signal_id_to_sprite(sig_data.signal_id)
+        if not sprite_path then
+            goto continue
+        end
 
         -- Determine color indicator sprite based on wire color
         local slot_style

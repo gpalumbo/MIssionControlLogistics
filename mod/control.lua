@@ -376,8 +376,7 @@ commands.add_command("mc-dump-receivers", "Dump all receiver data for debugging"
 
   player.print("[Mission Control] Receiver Storage Dump:")
   for unit_number, receiver_data in pairs(storage.receivers or {}) do
-    local entity = game.get_entity_by_unit_number(unit_number)
-    local link = storage.receiver_links and storage.receiver_links[unit_number]
+    local entity = receiver_data.entity
 
     player.print(string.format("  Receiver #%d:", unit_number))
     player.print(string.format("    Entity exists: %s", entity and "YES" or "NO"))
@@ -387,10 +386,18 @@ commands.add_command("mc-dump-receivers", "Dump all receiver data for debugging"
       player.print(string.format("    Entity surface: %s", entity.surface.name))
     end
     player.print(string.format("    Platform index: %d", receiver_data.platform_index))
-    player.print(string.format("    Has link: %s", link and "YES" or "NO"))
-    if link then
-      local output = game.get_entity_by_unit_number(link.output_unit_number)
-      player.print(string.format("    Output combinator exists: %s", output and "YES" or "NO"))
+
+    -- Show configured surfaces
+    if receiver_data.configured_surfaces and #receiver_data.configured_surfaces > 0 then
+      player.print(string.format("    Configured surfaces: %d", #receiver_data.configured_surfaces))
+      for _, surf_idx in ipairs(receiver_data.configured_surfaces) do
+        local surf = game.surfaces[surf_idx]
+        player.print(string.format("      - Surface %d (%s)", surf_idx, surf and surf.name or "INVALID"))
+      end
+    else
+      player.print("    Configured surfaces: NONE (receiver will not communicate!)")
     end
+
+    player.print(string.format("    Hold signal in transit: %s", receiver_data.hold_signal_in_transit and "YES" or "NO"))
   end
 end)

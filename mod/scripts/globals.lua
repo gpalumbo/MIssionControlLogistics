@@ -146,6 +146,16 @@ function globals.register_receiver(receiver_entity, output_entity_red, output_en
     log("[Globals] WARNING: storage.receivers was nil, initializing")
   end
 
+  -- Auto-configure all discovered planets by default
+  local default_surfaces = {}
+  for _, planet in pairs(game.planets) do
+    if planet.surface then
+      table.insert(default_surfaces, planet.surface.index)
+    end
+  end
+
+  log(string.format("[Globals] Auto-configuring receiver for %d planets", #default_surfaces))
+
   -- Store entity references directly (Factorio handles serialization)
   storage.receivers[receiver_entity.unit_number] = {
     entity = receiver_entity,
@@ -154,10 +164,12 @@ function globals.register_receiver(receiver_entity, output_entity_red, output_en
     platform_index = platform.index,
 
     -- Surface configuration: which surfaces this receiver communicates with
-    configured_surfaces = {},  -- Array of surface indices
+    -- Default to all known planets for convenience
+    configured_surfaces = default_surfaces,  -- Array of surface indices
 
     -- Signal behavior when in transit
-    hold_signal_in_transit = false,  -- If true, hold last signal; if false, clear signals
+    -- Default to true: maintain last signal during transit (more useful default)
+    hold_signal_in_transit = true,  -- If true, hold last signal; if false, clear signals
 
     -- Cached signals from ground (for hold signal feature)
     last_received_signals = {
@@ -175,7 +187,8 @@ function globals.register_receiver(receiver_entity, output_entity_red, output_en
     last_update = 0
   }
 
-  log(string.format("[Globals] Registered receiver #%d (platform %d)", receiver_entity.unit_number, platform.index))
+  log(string.format("[Globals] Registered receiver #%d (platform %d) with %d configured surfaces",
+    receiver_entity.unit_number, platform.index, #default_surfaces))
 
   -- Count receivers for debug
   local count = 0
