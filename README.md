@@ -32,3 +32,18 @@ Platform Receiver outputs iron-plate = 100 (held) or 0 (if hold disabled)
 
 ## Research
 Unlock via **Mission Control** technology (requires space science).
+
+## Mod Synergy: Logistics Combinator
+
+Combine with [Logistics Combinator](https://mods.factorio.com/mod/logistics-combinator) for automated cross-surface shipping:
+
+**Platform requests items from planet:**
+1. Platform reads inventory shortages via circuit network
+2. Receiver sends shortage signals to planet's Mission Control Tower
+3. Logistics Combinator on planet sets rocket cargo based on received signals
+4. Rocket launches with exactly what the platform needs
+
+**Planet monitors platform status:**
+1. Platform sends current inventory/production stats via Receiver
+2. Mission Control Tower outputs these signals on planet
+3. Use signals to control factory production priorities or alert systems
