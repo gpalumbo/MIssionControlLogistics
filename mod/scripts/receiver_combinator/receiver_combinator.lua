@@ -50,13 +50,52 @@ end
 --- Create a receiver combinator on a space platform
 --- @param entity LuaEntity The receiver combinator entity just built
 --- @param player_index uint|nil The player who built it (for undo support)
-function receiver_combinator.on_built(entity, player_index)
+--- @param tags table|nil Blueprint tags (from event.tags in Factorio 2.0+)
+function receiver_combinator.on_built(entity, player_index, tags)
   if not entity or not entity.valid then
     return
   end
 
-  -- Verify this is a receiver combinator
-  if entity.name ~= "receiver-combinator" then
+  -- Verify this is a receiver combinator (handle ghosts)
+  local entity_name = entity.name
+  if entity.type == "entity-ghost" then
+    entity_name = entity.ghost_name
+
+    -- DEBUG: Log what tags we received from different sources
+    log(string.format("[MC Receiver Ghost] Creating ghost, event.tags = %s", tags and "EXISTS" or "NIL"))
+    log(string.format("[MC Receiver Ghost] Ghost entity.tags = %s", entity.tags and "EXISTS" or "NIL"))
+
+    if entity.tags then
+      log(string.format("[MC Receiver Ghost] entity.tags.receiver_config = %s",
+        entity.tags.receiver_config and "EXISTS" or "NIL"))
+      if entity.tags.receiver_config then
+        log(string.format("[MC Receiver Ghost] entity.tags has %d surfaces",
+          #(entity.tags.receiver_config.configured_surfaces or {})))
+      end
+    end
+
+    -- Try to get config from event.tags first, then from entity.tags (blueprint placement)
+    local config = nil
+    if tags and tags.receiver_config then
+      config = tags.receiver_config
+      log("[MC Receiver Ghost] Found config in event.tags")
+    elseif entity.tags and entity.tags.receiver_config then
+      config = entity.tags.receiver_config
+      log("[MC Receiver Ghost] Found config in entity.tags (from blueprint/copy-paste)")
+    end
+
+    if config then
+      log(string.format("[MC Receiver Ghost] Applying config: %d surfaces, hold_signal=%s",
+        #(config.configured_surfaces or {}), tostring(config.hold_signal_in_transit)))
+      globals.save_ghost_receiver_config(entity, config)
+      log("[MC Receiver Ghost] Saved config to ghost tags")
+    else
+      log("[MC Receiver Ghost] WARNING: No config found in event.tags or entity.tags!")
+    end
+    return  -- Don't register ghosts
+  end
+
+  if entity_name ~= "receiver-combinator" then
     return
   end
 
@@ -131,6 +170,14 @@ function receiver_combinator.on_built(entity, player_index)
     entity.unit_number, tostring(entity.valid), entity.name))
 
   globals.register_receiver(entity, output_combinator_red, output_combinator_green, platform)
+
+  -- Apply configuration from blueprint tags if present
+  if tags and tags.receiver_config then
+    globals.restore_receiver_config(entity, tags.receiver_config)
+    log(string.format("[MC Receiver] Applied blueprint config: %d surfaces, hold_signal=%s",
+      #(tags.receiver_config.configured_surfaces or {}),
+      tostring(tags.receiver_config.hold_signal_in_transit)))
+  end
 
   -- Verify we can retrieve the entity
   local test_entity = game.get_entity_by_unit_number(entity.unit_number)
@@ -232,19 +279,25 @@ function receiver_combinator.on_mined(entity, player_index)
 end
 
 --- Handle blueprint/copy-paste operations
---- @param entity LuaEntity The receiver entity
+--- @param entity LuaEntity The receiver entity (source)
 --- @return table|nil Settings to copy
 function receiver_combinator.on_copy_settings(entity)
-  -- Future: copy surface configuration when GUI is implemented
-  -- For now, no custom settings
-  return nil
+  if not entity or not entity.valid then
+    return nil
+  end
+  return globals.serialize_receiver_config(entity)
 end
 
---- Handle paste settings from blueprint
---- @param entity LuaEntity The target entity
+--- Handle paste settings from blueprint/copy-paste
+--- @param entity LuaEntity The target entity (destination)
 --- @param settings table The settings to paste
 function receiver_combinator.on_paste_settings(entity, settings)
-  -- Future: restore surface configuration when GUI is implemented
+  if not entity or not entity.valid or not settings then
+    return
+  end
+
+  -- Use universal restore function (handles both ghost and real entities)
+  globals.restore_receiver_config(entity, settings)
 end
 
 --- Update receiver status (for debugging/diagnostics)

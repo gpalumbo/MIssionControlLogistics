@@ -227,23 +227,12 @@ function network_manager.update_ground_to_space()
         network.cached_input_signals.green = green_signals or {}
         network.last_update = game.tick
 
-        if red_count > 0 or green_count > 0 then
-          log(string.format("[Ground→Space] Surface %d: Aggregated %d red + %d green signals from %d towers",
-            surface_index, red_count, green_count, towers_read))
-        end
-
         -- Write to all receivers configured for this surface
         for receiver_unit_number, receiver_data in pairs(storage.receivers) do
           local platform = get_platform_by_index(receiver_data.platform_index)
 
           -- Check if platform is at this surface
           local platform_surface_index = get_surface_index_from_location(platform and platform.space_location)
-
-          log(string.format("[Ground→Space] Checking receiver #%d: platform_surface=%s, tower_surface=%s, configured=%s",
-            receiver_unit_number,
-            platform_surface_index or "nil",
-            surface_index,
-            is_surface_configured(receiver_data, surface_index) and "yes" or "no"))
 
           -- Check if this receiver is configured for this surface
           if is_surface_configured(receiver_data, surface_index) then
@@ -261,9 +250,6 @@ function network_manager.update_ground_to_space()
                 receiver_data.last_received_signals.green = green_signals
 
                 receivers_updated = receivers_updated + 1
-                log(string.format("[Ground→Space] Wrote signals to receiver #%d (at configured surface)", receiver_unit_number))
-              else
-                log(string.format("[Ground→Space] Receiver #%d has invalid output combinators", receiver_unit_number))
               end
             end
           end
@@ -288,7 +274,6 @@ function network_manager.update_ground_to_space()
            receiver_data.output_entity_green and receiver_data.output_entity_green.valid then
           write_signals_to_combinator(receiver_data.output_entity_red, receiver_data.last_received_signals.red or {}, "red")
           write_signals_to_combinator(receiver_data.output_entity_green, receiver_data.last_received_signals.green or {}, "green")
-          log(string.format("[Ground→Space] Receiver #%d holding last signal (in transit)", receiver_unit_number))
         end
       else
         -- Clear signals when not at configured surface
@@ -296,13 +281,10 @@ function network_manager.update_ground_to_space()
            receiver_data.output_entity_green and receiver_data.output_entity_green.valid then
           write_signals_to_combinator(receiver_data.output_entity_red, {}, "red")
           write_signals_to_combinator(receiver_data.output_entity_green, {}, "green")
-          log(string.format("[Ground→Space] Receiver #%d clearing signals (in transit, hold disabled)", receiver_unit_number))
         end
       end
     end
   end
-
-  log(string.format("[Ground→Space] Processed %d surfaces, updated %d receivers", surfaces_processed, receivers_updated))
 end
 
 --- Update space-to-ground signal transmission
@@ -320,13 +302,10 @@ function network_manager.update_space_to_ground()
     local receiver_entity = receiver_data.entity
 
     if not receiver_entity or not receiver_entity.valid then
-      log(string.format("[Space→Ground] Receiver #%d: entity invalid, skipping", receiver_unit_number))
       -- Clean up invalid receiver
       storage.receivers[receiver_unit_number] = nil
       goto continue
     end
-
-    log(string.format("[Space→Ground] Receiver #%d: using cached entity reference", receiver_unit_number))
 
     if receiver_entity and receiver_entity.valid then
       local platform = get_platform_by_index(receiver_data.platform_index)
@@ -348,9 +327,6 @@ function network_manager.update_space_to_ground()
 
         local red_count = count_signals(red_signals)
         local green_count = count_signals(green_signals)
-
-        log(string.format("[Space→Ground] Receiver #%d: Read %d red + %d green signals",
-            receiver_unit_number, red_count, green_count))
 
         -- Add to aggregation arrays
         if red_signals then
@@ -382,10 +358,6 @@ function network_manager.update_space_to_ground()
       for unit_number, combinator in pairs(network.output_combinators_red or {}) do
         if combinator and combinator.valid and combinator.get_or_create_control_behavior then
           write_signals_to_combinator(combinator, aggregated_red, "red")
-          if agg_red_count > 0 then
-            log(string.format("[Space→Ground] Wrote %d red signals to RED combinator #%d",
-              agg_red_count, unit_number))
-          end
         end
       end
 
@@ -394,39 +366,17 @@ function network_manager.update_space_to_ground()
         if combinator and combinator.valid and combinator.get_or_create_control_behavior then
           write_signals_to_combinator(combinator, aggregated_green, "green")
           towers_updated = towers_updated + 1
-          if agg_green_count > 0 then
-            log(string.format("[Space→Ground] Wrote %d green signals to GREEN combinator #%d",
-              agg_green_count, unit_number))
-          end
         end
       end
     end
   end
-
-  log(string.format("[Space→Ground] Read %d receivers, updated %d tower outputs", receivers_read, towers_updated))
 end
 
 --- Main update function called every 15 ticks
 --- Handles bidirectional signal transmission
---- @param debug boolean Optional debug flag to print diagnostic info
-function network_manager.on_tick_update(debug)
-  if debug then
-    local network_count = 0
-    local receiver_count = 0
-    for _ in pairs(storage.mc_networks or {}) do network_count = network_count + 1 end
-    for _ in pairs(storage.receivers or {}) do receiver_count = receiver_count + 1 end
-
-    log("[Mission Control Debug] Starting signal update cycle")
-    log(string.format("  - MC Networks: %d", network_count))
-    log(string.format("  - Receivers: %d", receiver_count))
-  end
-
+function network_manager.on_tick_update()
   network_manager.update_ground_to_space()
   network_manager.update_space_to_ground()
-
-  if debug then
-    log("[Mission Control Debug] Signal update complete")
-  end
 end
 
 --- Update platform location cache

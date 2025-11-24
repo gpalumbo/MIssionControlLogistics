@@ -22,6 +22,21 @@ function globals.init()
   storage.player_gui_states = storage.player_gui_states or {}
 end
 
+--- Get entity name, handling both regular entities and ghosts
+--- @param entity LuaEntity The entity to check
+--- @return string|nil The entity name (ghost_name for ghosts, name for regular entities)
+function globals.get_entity_name(entity)
+  if not entity or not entity.valid then
+    return nil
+  end
+
+  if entity.type == "entity-ghost" then
+    return entity.ghost_name
+  end
+
+  return entity.name
+end
+
 --- Initialize or get MC network for a surface
 --- @param surface_index uint Surface index
 --- @return table Network data structure
@@ -146,7 +161,21 @@ function globals.register_receiver(receiver_entity, output_entity_red, output_en
     log("[Globals] WARNING: storage.receivers was nil, initializing")
   end
 
-  -- Auto-configure all discovered planets by default
+  -- Check if receiver already exists (preserve configuration)
+  local existing_data = storage.receivers[receiver_entity.unit_number]
+  if existing_data then
+    log(string.format("[Globals] Receiver #%d already registered, updating entity references only", receiver_entity.unit_number))
+
+    -- Update entity references only, preserve configuration
+    existing_data.entity = receiver_entity
+    existing_data.output_entity_red = output_entity_red
+    existing_data.output_entity_green = output_entity_green
+    existing_data.platform_index = platform.index
+
+    return
+  end
+
+  -- Auto-configure all discovered planets by default (for new receivers)
   local default_surfaces = {}
   for _, planet in pairs(game.planets) do
     if planet.surface then
@@ -154,7 +183,7 @@ function globals.register_receiver(receiver_entity, output_entity_red, output_en
     end
   end
 
-  log(string.format("[Globals] Auto-configuring receiver for %d planets", #default_surfaces))
+  log(string.format("[Globals] Auto-configuring new receiver for %d planets", #default_surfaces))
 
   -- Store entity references directly (Factorio handles serialization)
   storage.receivers[receiver_entity.unit_number] = {
@@ -187,7 +216,7 @@ function globals.register_receiver(receiver_entity, output_entity_red, output_en
     last_update = 0
   }
 
-  log(string.format("[Globals] Registered receiver #%d (platform %d) with %d configured surfaces",
+  log(string.format("[Globals] Registered new receiver #%d (platform %d) with %d configured surfaces",
     receiver_entity.unit_number, platform.index, #default_surfaces))
 
   -- Count receivers for debug
@@ -202,11 +231,169 @@ function globals.unregister_receiver(unit_number)
   storage.receivers[unit_number] = nil
 end
 
+--- Get receiver data (universal function that handles both entities and unit_numbers)
+--- @param entity_or_unit_number LuaEntity|uint Entity reference or unit number
+--- @return table|nil Receiver data from storage, or nil if not found
+function globals.get_receiver_data(entity_or_unit_number)
+  if type(entity_or_unit_number) == "number" then
+    return storage.receivers[entity_or_unit_number]
+  end
+
+  -- It's an entity reference
+  local entity = entity_or_unit_number
+
+  if not entity or not entity.valid then
+    return nil
+  end
+
+  -- For ghost entities, we need to check tags instead of storage
+  if entity.type == "entity-ghost" then
+    -- Ghost entities don't have unit_numbers, return config from tags
+    return globals.get_ghost_receiver_config(entity)
+  end
+
+  return storage.receivers[entity.unit_number]
+end
+
+--- Get receiver data (universal function that handles both entities and unit_numbers)
+--- Creates entry if it doesn't exist
+--- @param entity_or_unit_number LuaEntity|uint Entity reference or unit number
+--- @return table|nil Receiver data from storage, or nil if not found
+function globals.get_or_regsiter_receiver_data(entity_or_unit_number)
+  if type(entity_or_unit_number) == "number" then
+    if not storage.receivers[entity_or_unit_number] then
+      storage.receivers[entity_or_unit_number] = {
+        configured_surfaces = {},
+        hold_signal_in_transit = false
+      }
+    end
+    return storage.receivers[entity_or_unit_number]
+  end
+
+  -- It's an entity reference
+  local entity = entity_or_unit_number
+
+  if not entity or not entity.valid then
+    return nil
+  end
+
+  -- For ghost entities, we need to check tags instead of storage
+  if entity.type == "entity-ghost" then
+    -- Ghost entities don't have unit_numbers, return config from tags
+    return globals.get_ghost_receiver_config(entity)
+  end
+
+  local unit_number = entity.unit_number
+  if not storage.receivers[unit_number] then
+    storage.receivers[unit_number] = {
+      configured_surfaces = {},
+      hold_signal_in_transit = false
+    }
+  end
+  return storage.receivers[unit_number]
+end
+
+--- Serialize receiver configuration for blueprints/copy-paste
+--- @param unit_number uint Receiver entity unit number
+--- @return table|nil Serialized configuration table
+function globals.serialize_receiver_config(entity_or_unit_number)
+  -- Handle ghost entities as well as real
+  local receiver_data = globals.get_receiver_data(entity_or_unit_number)
+  if not receiver_data then
+    return nil
+  end
+
+  return {
+    configured_surfaces = receiver_data.configured_surfaces or {},
+    hold_signal_in_transit = receiver_data.hold_signal_in_transit or false
+  }
+end
+
+--- Restore receiver configuration from blueprint/copy-paste
+--- @param entity LuaEntity Receiver entity (real or ghost)
+--- @param config table Configuration table from blueprint tags
+function globals.restore_receiver_config(entity, config)
+  if not entity or not entity.valid or not config then
+    return
+  end
+
+  -- If it's a ghost, save to tags instead of storage
+  if entity.type == "entity-ghost" then
+    globals.save_ghost_receiver_config(entity, config)
+    return
+  end
+
+  -- For real entities, update storage
+  local receiver_data = globals.get_or_regsiter_receiver_data(entity)
+  if receiver_data then
+    receiver_data.configured_surfaces = config.configured_surfaces or {}
+    receiver_data.hold_signal_in_transit = config.hold_signal_in_transit or false
+  end
+end
+
+--- Get receiver configuration from ghost entity tags
+--- @param ghost_entity LuaEntity Ghost entity
+--- @return table Configuration table (returns defaults if no tags found)
+function globals.get_ghost_receiver_config(ghost_entity)
+  if not ghost_entity or not ghost_entity.valid or ghost_entity.type ~= "entity-ghost" then
+    return {configured_surfaces = {}, hold_signal_in_transit = false}
+  end
+
+  -- Read from entity tags
+  local tags = ghost_entity.tags
+  if not tags then
+    tags = {}
+  end
+
+  if not tags.receiver_config then
+    tags.receiver_config = {configured_surfaces = {}, hold_signal_in_transit = false}
+    ghost_entity.tags = tags
+  end
+
+  return tags.receiver_config
+end
+
+--- Save receiver configuration to ghost entity tags
+--- @param ghost_entity LuaEntity Ghost entity
+--- @param config table Configuration table to save
+function globals.save_ghost_receiver_config(ghost_entity, config)
+  if not ghost_entity or not ghost_entity.valid or ghost_entity.type ~= "entity-ghost" then
+    return
+  end
+
+  -- Complete tag assignment (don't modify tags directly)
+  local tags = ghost_entity.tags or {}
+  tags.receiver_config = config
+  ghost_entity.tags = tags
+end
+
+--- Universal update function for receiver configuration (handles both ghost and real entities)
+--- @param entity LuaEntity Receiver entity (real or ghost)
+--- @param config table Complete configuration table
+function globals.update_receiver_data_universal(entity, config)
+  if not entity or not entity.valid or not config then
+    return
+  end
+
+  if entity.type == "entity-ghost" then
+    -- Ghost entity: save to tags
+    globals.save_ghost_receiver_config(entity, config)
+  else
+    -- Real entity: update storage
+    local receiver_data = globals.get_or_regsiter_receiver_data(entity)
+    if not receiver_data then
+      return
+    end
+    receiver_data.configured_surfaces = config.configured_surfaces or {}
+    receiver_data.hold_signal_in_transit = config.hold_signal_in_transit or false
+  end
+end
+
 --- Update receiver's configured surfaces
 --- @param unit_number uint Receiver entity unit number
 --- @param surface_indices table Array of surface indices
 function globals.set_receiver_surfaces(unit_number, surface_indices)
-  local receiver_data = storage.receivers[unit_number]
+  local receiver_data = globals.get_or_regsiter_receiver_data(unit_number)
   if receiver_data then
     receiver_data.configured_surfaces = surface_indices or {}
   end
@@ -216,7 +403,7 @@ end
 --- @param unit_number uint Receiver entity unit number
 --- @param surface_index uint Surface index to add
 function globals.add_receiver_surface(unit_number, surface_index)
-  local receiver_data = storage.receivers[unit_number]
+  local receiver_data = globals.get_or_regsiter_receiver_data(unit_number)
   if receiver_data then
     -- Check if already configured
     for _, idx in ipairs(receiver_data.configured_surfaces) do
@@ -247,7 +434,7 @@ end
 --- @param unit_number uint Receiver entity unit number
 --- @param hold_signal boolean True to hold signals in transit, false to clear
 function globals.set_receiver_hold_signal(unit_number, hold_signal)
-  local receiver_data = storage.receivers[unit_number]
+  local receiver_data = globals.get_or_regsiter_receiver_data(unit_number)
   if receiver_data then
     receiver_data.hold_signal_in_transit = hold_signal
   end
@@ -316,8 +503,9 @@ function globals.set_player_gui_entity(player_index, entity, gui_type)
   end
 
   storage.player_gui_states[player_index] = {
-    open_entity = entity.unit_number,
-    gui_type = gui_type
+    open_entity = entity,  -- Store entity reference, not unit_number (supports ghosts)
+    gui_type = gui_type,
+    is_ghost = (entity.type == "entity-ghost")
   }
 end
 
@@ -334,7 +522,7 @@ end
 
 --- Get player GUI state
 --- @param player_index uint Player index
---- @return table|nil GUI state {open_entity=uint, gui_type=string}
+--- @return table|nil GUI state {open_entity=LuaEntity, gui_type=string, is_ghost=boolean}
 function globals.get_player_gui_state(player_index)
   if not storage.player_gui_states then
     return nil

@@ -2,6 +2,9 @@
 -- Hidden constant combinator used for space->ground signal output
 -- Created automatically when a Mission Control Tower is built
 
+-- Constants
+local default_circuit_wire_max_distance = 9  -- Standard Factorio circuit wire reach
+
 local output_combinator = table.deepcopy(data.raw["constant-combinator"]["constant-combinator"])
 
 -- Basic properties

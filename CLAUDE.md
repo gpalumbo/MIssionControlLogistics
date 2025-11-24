@@ -4,7 +4,7 @@ Requirements for the mod are @docs/spec.md
 Maintain currect activity in @docs/todo.md
 Code snippets defined when considering feasibilty options are in @docs/implmentation_hints.md, When planning you need to look at these and take them into consideration.
 
-**🚨 CRITICAL: Module Responsibility Matrix 🚨**
+**🚨 CRITICAL: 🚨**
 Ensure proper API usage is strictly adhered to.  
 - use @docs\flib_api_reference.md to find premade utilities
 - Use Context7 to view "Factorio Lua API"  also use 

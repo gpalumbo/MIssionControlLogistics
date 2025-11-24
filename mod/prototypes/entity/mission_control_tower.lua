@@ -2,6 +2,9 @@
 -- Based on arithmetic combinator with separate input/output connectors (prevents feedback loops)
 -- Similar to receiver combinator design for consistency
 
+-- Constants
+local default_circuit_wire_max_distance = 9  -- Standard Factorio circuit wire reach
+
 local mission_control_tower = table.deepcopy(data.raw["arithmetic-combinator"]["arithmetic-combinator"])
 
 -- Basic properties

@@ -10,13 +10,21 @@ local mission_control_tower = {}
 --- Create a Mission Control tower and its hidden output combinator
 --- @param entity LuaEntity The tower entity just built
 --- @param player_index uint|nil The player who built it (for undo support)
-function mission_control_tower.on_built(entity, player_index)
+--- @param tags table|nil Blueprint tags (from event.tags in Factorio 2.0+)
+function mission_control_tower.on_built(entity, player_index, tags)
   if not entity or not entity.valid then
     return
   end
 
-  -- Verify this is a Mission Control tower (combinator-based entity)
-  if entity.name ~= "mission-control-tower" then
+  -- Verify this is a Mission Control tower
+  local entity_name = entity.name
+  if entity.type == "entity-ghost" then
+    entity_name = entity.ghost_name
+    -- Mission Control towers have no configuration yet, so skip ghost handling
+    return  -- Don't register ghosts
+  end
+
+  if entity_name ~= "mission-control-tower" then
     return
   end
 
@@ -163,8 +171,8 @@ end
 --- @param entity LuaEntity The tower entity
 --- @return table|nil Settings to copy
 function mission_control_tower.on_copy_settings(entity)
-  -- Mission Control towers don't have custom settings yet
-  -- (Future: could save channel/frequency settings if we add that feature)
+  -- Mission Control towers have no configuration or GUI
+  -- They function as simple signal relay stations
   return nil
 end
 
@@ -172,8 +180,7 @@ end
 --- @param entity LuaEntity The target entity
 --- @param settings table The settings to paste
 function mission_control_tower.on_paste_settings(entity, settings)
-  -- Currently no custom settings to paste
-  -- (Future: restore channel/frequency settings)
+  -- Mission Control towers have no configuration to paste
 end
 
 --- Validate all towers and clean up orphaned entities

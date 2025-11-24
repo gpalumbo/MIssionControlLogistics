@@ -2,12 +2,15 @@
 -- Based on arithmetic combinator with platform-only placement
 -- Arithmetic combinator has both input and output connections for bidirectional communication
 
+-- Constants
+local default_circuit_wire_max_distance = 9  -- Standard Factorio circuit wire reach
+
 local receiver_combinator = table.deepcopy(data.raw["arithmetic-combinator"]["arithmetic-combinator"])
 
 -- Basic properties
 receiver_combinator.name = "receiver-combinator"
 receiver_combinator.minable.result = "receiver-combinator"
-receiver_combinator.icon = "__base__/graphics/icons/arithmetic-combinator.png"
+receiver_combinator.icon = "__mission-control__/graphics/entities/receiver_icon.png"
 receiver_combinator.icon_size = 64
 
 -- Health (same as arithmetic combinator spec: 150, scales with quality)
@@ -30,17 +33,42 @@ receiver_combinator.selection_box = {{-0.5, -1}, {0.5, 1}}
 -- Circuit connector specifications
 receiver_combinator.circuit_wire_max_distance = default_circuit_wire_max_distance
 
--- Graphics will use arithmetic combinator graphics for now
--- TODO: Replace with custom graphics (combinator with dish antenna on top)
-receiver_combinator.sprites = data.raw["arithmetic-combinator"]["arithmetic-combinator"].sprites
+-- Custom graphics: combinator with dish antenna on top
+-- Sprite sheet: 576x124 (4 frames of 144x124 each for N/E/S/W directions)
+receiver_combinator.sprites = make_4way_animation_from_spritesheet({
+  layers = {
+    {
+      scale = 0.5,
+      filename = "__mission-control__/graphics/entities/receiver-combinator.png",
+      width = 144,
+      height = 124,
+      shift = util.by_pixel(0, 0)
+    },
+    {
+      scale = 0.5,
+      filename = "__mission-control__/graphics/entities/receiver-combinator-shadow.png",
+      width = 148,
+      height = 156,
+      shift = util.by_pixel(6, 3),
+      draw_as_shadow = true
+    }
+  }
+})
 
--- Activity LED configuration
-receiver_combinator.activity_led_sprites = data.raw["arithmetic-combinator"]["arithmetic-combinator"].activity_led_sprites
-receiver_combinator.activity_led_light_offsets = data.raw["arithmetic-combinator"]["arithmetic-combinator"].activity_led_light_offsets
+-- Clear arithmetic combinator operation symbol sprites (not needed for receiver)
+receiver_combinator.multiply_symbol_sprites = nil
+receiver_combinator.plus_symbol_sprites = nil
+receiver_combinator.minus_symbol_sprites = nil
+receiver_combinator.divide_symbol_sprites = nil
+receiver_combinator.modulo_symbol_sprites = nil
+receiver_combinator.power_symbol_sprites = nil
+receiver_combinator.left_shift_symbol_sprites = nil
+receiver_combinator.right_shift_symbol_sprites = nil
+receiver_combinator.and_symbol_sprites = nil
+receiver_combinator.or_symbol_sprites = nil
+receiver_combinator.xor_symbol_sprites = nil
 
--- Screen light configuration (for display)
-receiver_combinator.screen_light = data.raw["arithmetic-combinator"]["arithmetic-combinator"].screen_light
-receiver_combinator.screen_light_offsets = data.raw["arithmetic-combinator"]["arithmetic-combinator"].screen_light_offsets
+-- LED and screen lights are inherited from arithmetic combinator (required properties)
 
 -- Placement restrictions: space platforms only (opposite of mission control tower)
 receiver_combinator.surface_conditions = {
@@ -57,7 +85,7 @@ receiver_combinator.flags = {"placeable-player", "player-creation", "get-by-unit
 -- Create remnants entity
 local receiver_combinator_remnants = table.deepcopy(data.raw["corpse"]["arithmetic-combinator-remnants"])
 receiver_combinator_remnants.name = "receiver-combinator-remnants"
-receiver_combinator_remnants.icon = "__base__/graphics/icons/arithmetic-combinator.png"
+receiver_combinator_remnants.icon = "__mission-control__/graphics/entities/receiver_icon.png"
 receiver_combinator_remnants.icon_size = 64
 
 -- Extend data

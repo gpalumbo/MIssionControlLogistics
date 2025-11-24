@@ -39,14 +39,19 @@ local function get_receiver_data_from_player(player)
     if not player then return nil, nil end
 
     local gui_state = globals.get_player_gui_state(player.index)
-    if not gui_state then return nil, nil end
-
-    local receiver_data = storage.receivers[gui_state.open_entity]
-    if not receiver_data or not receiver_data.entity or not receiver_data.entity.valid then
+    if not gui_state or not gui_state.open_entity or not gui_state.open_entity.valid then
         return nil, nil
     end
 
-    return receiver_data, receiver_data.entity
+    local entity = gui_state.open_entity
+
+    -- Use universal getter (handles both ghost and real entities)
+    local receiver_data = globals.get_receiver_data(entity)
+    if not receiver_data then
+        return nil, nil
+    end
+
+    return receiver_data, entity
 end
 
 --- Get all discovered planets/surfaces
@@ -100,7 +105,7 @@ end
 --- @param parent LuaGuiElement Parent element
 --- @param entity LuaEntity The receiver entity
 local function create_settings_panel(parent, entity)
-    local receiver_data = storage.receivers[entity.unit_number]
+    local receiver_data = globals.get_receiver_data(entity)
     if not receiver_data then
         return nil
     end
@@ -267,7 +272,8 @@ end
 --- @param entity LuaEntity The receiver entity
 local function create_output_signal_grid(parent, entity)
     -- Get receiver data to access hidden output combinators
-    local receiver_data = storage.receivers[entity.unit_number]
+    local receiver_data = globals.get_receiver_data(entity)
+
     if not receiver_data then
         return nil
     end
@@ -377,6 +383,8 @@ local gui_handlers = {
     select_all_button = function(event)
         local player = game.players[event.player_index]
         local receiver_data, entity = get_receiver_data_from_player(player)
+        log("Select All button clicked " .. serpent.line(receiver_data) )
+
         if not receiver_data then return end
 
         -- Get all discovered surfaces and add them all
@@ -387,7 +395,12 @@ local gui_handlers = {
             table.insert(surface_indices, surface_info.surface_index)
         end
 
-        globals.set_receiver_surfaces(entity.unit_number, surface_indices)
+        -- Update using universal function (handles both ghost and real entities)
+        local config = {
+            configured_surfaces = surface_indices,
+            hold_signal_in_transit = receiver_data.hold_signal_in_transit or false
+        }
+        globals.update_receiver_data_universal(entity, config)
 
         -- Refresh the panel to show updated checkboxes
         refresh_settings_panel(player)
@@ -398,8 +411,12 @@ local gui_handlers = {
         local receiver_data, entity = get_receiver_data_from_player(player)
         if not receiver_data then return end
 
-        -- Clear all configured surfaces
-        globals.set_receiver_surfaces(entity.unit_number, {})
+        -- Update using universal function (handles both ghost and real entities)
+        local config = {
+            configured_surfaces = {},
+            hold_signal_in_transit = receiver_data.hold_signal_in_transit or false
+        }
+        globals.update_receiver_data_universal(entity, config)
 
         -- Refresh the panel to show updated checkboxes
         refresh_settings_panel(player)
@@ -591,15 +608,10 @@ end
 --- Handle GUI opened event
 --- @param event EventData.on_gui_opened
 function receiver_gui.on_gui_opened(event)
-    local entity = event.entity
-    if entity and entity.valid and entity.name == "receiver-combinator" then
+    local entity = event.entity 
+    local entity_name = globals.get_entity_name(entity)
+    if entity and entity.valid and entity_name == "receiver-combinator" then
         local player = game.players[event.player_index]
-
-        -- Ensure entity is registered (in case this is from a loaded save)
-        if not storage.receivers[entity.unit_number] then
-            game.print("[Mission Control] Warning: Receiver combinator not registered, cannot open GUI")
-            return
-        end
 
         -- Close the default combinator GUI that Factorio opened
         if player.opened == entity then
@@ -628,6 +640,12 @@ function receiver_gui.on_gui_click(event)
 
     local element = event.element
     if not element or not element.valid then return end
+
+    -- Handle Close button
+    if element.name == GUI_NAMES.CLOSE_BUTTON then
+        gui_handlers.close_button(event)
+        return
+    end
 
     -- Handle Select All button
     if element.name == GUI_NAMES.SELECT_ALL_BUTTON then
@@ -659,20 +677,56 @@ function receiver_gui.on_gui_checked_state_changed(event)
         local surface_index = tonumber(surface_index_str)
 
         if surface_index then
+            -- Get current configured surfaces
+            local configured_surfaces = receiver_data.configured_surfaces or {}
+            local new_surfaces = {}
+
+            -- Copy existing surfaces
+            for _, surf_idx in ipairs(configured_surfaces) do
+                table.insert(new_surfaces, surf_idx)
+            end
+
             if element.state then
-                -- Checkbox checked - add surface
-                globals.add_receiver_surface(entity.unit_number, surface_index)
+                -- Checkbox checked - add surface if not already present
+                local already_present = false
+                for _, surf_idx in ipairs(new_surfaces) do
+                    if surf_idx == surface_index then
+                        already_present = true
+                        break
+                    end
+                end
+                if not already_present then
+                    table.insert(new_surfaces, surface_index)
+                end
             else
                 -- Checkbox unchecked - remove surface
-                globals.remove_receiver_surface(entity.unit_number, surface_index)
+                local filtered = {}
+                for _, surf_idx in ipairs(new_surfaces) do
+                    if surf_idx ~= surface_index then
+                        table.insert(filtered, surf_idx)
+                    end
+                end
+                new_surfaces = filtered
             end
+
+            -- Update using universal function (handles both ghost and real entities)
+            local config = {
+                configured_surfaces = new_surfaces,
+                hold_signal_in_transit = receiver_data.hold_signal_in_transit or false
+            }
+            globals.update_receiver_data_universal(entity, config)
         end
         return
     end
 
     -- Handle hold signal toggle
     if element.name == GUI_NAMES.HOLD_SIGNAL_TOGGLE then
-        globals.set_receiver_hold_signal(entity.unit_number, element.state)
+        -- Update using universal function (handles both ghost and real entities)
+        local config = {
+            configured_surfaces = receiver_data.configured_surfaces or {},
+            hold_signal_in_transit = element.state
+        }
+        globals.update_receiver_data_universal(entity, config)
         return
     end
 end
