@@ -9,17 +9,19 @@ Circuit network communication between planetary surfaces and space platforms.
 2. Connect circuit networks (red/green wires) to tower inputs
 3. All towers on same surface share and aggregate their input signals
 4. Signals broadcast to configured space platforms
+5. **Space → Ground**: Towers output signals from all receivers on platforms currently in orbit at that planet
 
 ### On Space Platforms
 1. Place **Receiver Combinators** on your platform
 2. Open the combinator GUI (click on it)
 3. Select which planets this receiver communicates with (checkboxes)
 4. Toggle "Hold signal in transit" to keep signals while traveling
+5. **Ground → Space**: Receivers output signals received from towers on configured planets ONLY when orbiting them
 
 ### Signal Flow
 - **Ground → Space**: Receivers output signals from configured planets when orbiting them
 - **Space → Ground**: Towers output signals from all platforms at that planet
-- **In Transit**: If hold enabled, receivers keep last signal. If disabled, signals clear.
+- **In Transit**: If hold enabled, receivers keep last signal while moving. If disabled, signals clear.
 
 ### Example Setup
 ```
