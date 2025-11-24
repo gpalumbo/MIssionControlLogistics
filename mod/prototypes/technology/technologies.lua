@@ -4,8 +4,9 @@ data:extend({
   {
     type = "technology",
     name = "mission-control",
-    icon = "__base__/graphics/icons/radar.png",  -- TODO: Replace with custom icon (radar with satellite dish overlay)
+    icon = "__mission-control__/graphics/entities/tower_icon.png",
     icon_size = 64,
+    icon_mipmaps = 4,
     effects = {
       {
         type = "unlock-recipe",

@@ -292,6 +292,20 @@ end
 -- Override GUI event handlers with dispatchers that route based on entity type or GUI state
 -- This is necessary because multiple script.on_event calls for the same event will overwrite each other
 script.on_event(defines.events.on_gui_opened, function(event)
+    -- Mission Control Tower: close GUI immediately (no configuration needed)
+    if not event.entity or not event.entity.valid then
+      return
+    end
+
+    local entity_name = globals.get_entity_name(event.entity)
+    if entity_name == "mission-control-tower" then
+        local player = game.get_player(event.player_index)
+        if player then
+            player.opened = nil
+        end
+        return
+    end
+
     local gui_module = get_gui_module_for_event(event)
     if gui_module and gui_module.on_gui_opened then
         gui_module.on_gui_opened(event)
