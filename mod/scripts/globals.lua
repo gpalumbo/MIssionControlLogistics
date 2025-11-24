@@ -76,13 +76,6 @@ function globals.register_tower(surface_index, entity)
 
   -- Store the entity reference directly (Factorio handles serialization)
   network.tower_entities[entity.unit_number] = entity
-
-  log(string.format("[Globals] Registered tower #%d on surface %d", entity.unit_number, surface_index))
-
-  -- Count towers for debug
-  local count = 0
-  for _ in pairs(network.tower_entities) do count = count + 1 end
-  log(string.format("[Globals] Total towers on surface %d: %d", surface_index, count))
 end
 
 --- Register hidden output combinators for a tower
@@ -100,10 +93,6 @@ function globals.register_output_combinator(surface_index, combinator_red, combi
   -- Store entity references in separate red/green tables
   network.output_combinators_red[combinator_red.unit_number] = combinator_red
   network.output_combinators_green[combinator_green.unit_number] = combinator_green
-
-  -- Debug: verify what we stored
-  log(string.format("[Globals] Stored RED output combinator #%d", combinator_red.unit_number))
-  log(string.format("[Globals] Stored GREEN output combinator #%d", combinator_green.unit_number))
 end
 
 --- Unregister a tower from the network
@@ -112,14 +101,6 @@ end
 function globals.unregister_tower(surface_index, unit_number)
   if storage.mc_networks[surface_index] then
     storage.mc_networks[surface_index].tower_entities[unit_number] = nil
-    log(string.format("[Globals] Removed tower #%d from surface %d network", unit_number, surface_index))
-
-    -- Debug: count remaining towers
-    local count = 0
-    for _ in pairs(storage.mc_networks[surface_index].tower_entities) do count = count + 1 end
-    log(string.format("[Globals] Remaining towers on surface %d: %d", surface_index, count))
-  else
-    log(string.format("[Globals] WARNING: No network found for surface %d when unregistering tower #%d", surface_index, unit_number))
   end
 end
 
@@ -131,16 +112,6 @@ function globals.unregister_output_combinator(surface_index, unit_number)
     -- Remove from both red and green tables (it will only be in one)
     storage.mc_networks[surface_index].output_combinators_red[unit_number] = nil
     storage.mc_networks[surface_index].output_combinators_green[unit_number] = nil
-    log(string.format("[Globals] Removed output combinator #%d from surface %d network", unit_number, surface_index))
-
-    -- Debug: count remaining combinators
-    local red_count = 0
-    local green_count = 0
-    for _ in pairs(storage.mc_networks[surface_index].output_combinators_red) do red_count = red_count + 1 end
-    for _ in pairs(storage.mc_networks[surface_index].output_combinators_green) do green_count = green_count + 1 end
-    log(string.format("[Globals] Remaining output combinators on surface %d: %d red, %d green", surface_index, red_count, green_count))
-  else
-    log(string.format("[Globals] WARNING: No network found for surface %d when unregistering combinator #%d", surface_index, unit_number))
   end
 end
 
@@ -164,8 +135,6 @@ function globals.register_receiver(receiver_entity, output_entity_red, output_en
   -- Check if receiver already exists (preserve configuration)
   local existing_data = storage.receivers[receiver_entity.unit_number]
   if existing_data then
-    log(string.format("[Globals] Receiver #%d already registered, updating entity references only", receiver_entity.unit_number))
-
     -- Update entity references only, preserve configuration
     existing_data.entity = receiver_entity
     existing_data.output_entity_red = output_entity_red
@@ -182,8 +151,6 @@ function globals.register_receiver(receiver_entity, output_entity_red, output_en
       table.insert(default_surfaces, planet.surface.index)
     end
   end
-
-  log(string.format("[Globals] Auto-configuring new receiver for %d planets", #default_surfaces))
 
   -- Store entity references directly (Factorio handles serialization)
   storage.receivers[receiver_entity.unit_number] = {
@@ -215,14 +182,6 @@ function globals.register_receiver(receiver_entity, output_entity_red, output_en
     -- Last tick this receiver was updated
     last_update = 0
   }
-
-  log(string.format("[Globals] Registered new receiver #%d (platform %d) with %d configured surfaces",
-    receiver_entity.unit_number, platform.index, #default_surfaces))
-
-  -- Count receivers for debug
-  local count = 0
-  for _ in pairs(storage.receivers) do count = count + 1 end
-  log(string.format("[Globals] Total receivers: %d", count))
 end
 
 --- Unregister a receiver combinator

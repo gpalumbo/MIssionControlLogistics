@@ -61,36 +61,16 @@ function receiver_combinator.on_built(entity, player_index, tags)
   if entity.type == "entity-ghost" then
     entity_name = entity.ghost_name
 
-    -- DEBUG: Log what tags we received from different sources
-    log(string.format("[MC Receiver Ghost] Creating ghost, event.tags = %s", tags and "EXISTS" or "NIL"))
-    log(string.format("[MC Receiver Ghost] Ghost entity.tags = %s", entity.tags and "EXISTS" or "NIL"))
-
-    if entity.tags then
-      log(string.format("[MC Receiver Ghost] entity.tags.receiver_config = %s",
-        entity.tags.receiver_config and "EXISTS" or "NIL"))
-      if entity.tags.receiver_config then
-        log(string.format("[MC Receiver Ghost] entity.tags has %d surfaces",
-          #(entity.tags.receiver_config.configured_surfaces or {})))
-      end
-    end
-
     -- Try to get config from event.tags first, then from entity.tags (blueprint placement)
     local config = nil
     if tags and tags.receiver_config then
       config = tags.receiver_config
-      log("[MC Receiver Ghost] Found config in event.tags")
     elseif entity.tags and entity.tags.receiver_config then
       config = entity.tags.receiver_config
-      log("[MC Receiver Ghost] Found config in entity.tags (from blueprint/copy-paste)")
     end
 
     if config then
-      log(string.format("[MC Receiver Ghost] Applying config: %d surfaces, hold_signal=%s",
-        #(config.configured_surfaces or {}), tostring(config.hold_signal_in_transit)))
       globals.save_ghost_receiver_config(entity, config)
-      log("[MC Receiver Ghost] Saved config to ghost tags")
-    else
-      log("[MC Receiver Ghost] WARNING: No config found in event.tags or entity.tags!")
     end
     return  -- Don't register ghosts
   end
@@ -153,7 +133,6 @@ function receiver_combinator.on_built(entity, player_index, tags)
 
   if receiver_output_red and output_red then
     output_red.connect_to(receiver_output_red, false, defines.wire_origin.script)
-    log(string.format("[MC Receiver] Connected RED output combinator to receiver #%d", entity.unit_number))
   end
 
   -- Connect green output combinator ONLY to green wire (prevents duplication)
@@ -162,63 +141,15 @@ function receiver_combinator.on_built(entity, player_index, tags)
 
   if receiver_output_green and output_green then
     output_green.connect_to(receiver_output_green, false, defines.wire_origin.script)
-    log(string.format("[MC Receiver] Connected GREEN output combinator to receiver #%d", entity.unit_number))
   end
 
   -- Register the receiver in global storage (stores entity references directly)
-  log(string.format("[MC Receiver] Registering receiver: unit_number=%d, entity.valid=%s, entity.name=%s",
-    entity.unit_number, tostring(entity.valid), entity.name))
-
   globals.register_receiver(entity, output_combinator_red, output_combinator_green, platform)
 
   -- Apply configuration from blueprint tags if present
   if tags and tags.receiver_config then
     globals.restore_receiver_config(entity, tags.receiver_config)
-    log(string.format("[MC Receiver] Applied blueprint config: %d surfaces, hold_signal=%s",
-      #(tags.receiver_config.configured_surfaces or {}),
-      tostring(tags.receiver_config.hold_signal_in_transit)))
   end
-
-  -- Verify we can retrieve the entity
-  local test_entity = game.get_entity_by_unit_number(entity.unit_number)
-  log(string.format("[MC Receiver] Verification 1: Can retrieve by unit_number? %s",
-    test_entity and "YES" or "NO"))
-
-  -- Test if it's findable on the surface
-  local all_combinators = surface.find_entities_filtered{
-    type = "arithmetic-combinator"
-  }
-  log(string.format("[MC Receiver] Total arithmetic-combinators on surface: %d", #all_combinators))
-
-  -- Test with surface-specific search
-  local found_by_position = surface.find_entity("receiver-combinator", position)
-  log(string.format("[MC Receiver] Verification 2: Found by surface.find_entity? %s",
-    found_by_position and "YES" or "NO"))
-
-  if test_entity then
-    log(string.format("[MC Receiver] Retrieved entity: name=%s, valid=%s, unit_number=%d",
-      test_entity.name, tostring(test_entity.valid), test_entity.unit_number))
-  end
-
-  -- Alternative approach: Find entity by position
-  local found_entities = surface.find_entities_filtered{
-    position = position,
-    radius = 0.5,
-    type = "arithmetic-combinator"
-  }
-
-  log(string.format("[MC Receiver] Found %d arithmetic-combinator entities at position {%.1f, %.1f}",
-    #found_entities, position.x, position.y))
-
-  for i, found in ipairs(found_entities) do
-    log(string.format("[MC Receiver]   Entity %d: name=%s, unit_number=%d, valid=%s",
-      i, found.name, found.unit_number, tostring(found.valid)))
-  end
-
-  log(string.format("[MC Receiver] Built receiver #%d on platform '%s' (index %d)",
-    entity.unit_number, platform.name or "Unknown", platform.index))
-  log(string.format("[MC Receiver] Output combinators: red=#%d, green=#%d",
-    output_combinator_red.unit_number, output_combinator_green.unit_number))
 
   -- Update platform location cache immediately for this platform
   -- This handles the case where a receiver is built while platform is already stationary
@@ -228,16 +159,11 @@ function receiver_combinator.on_built(entity, player_index, tags)
     if planet and planet.surface then
       surface_index = planet.surface.index
     end
-    log(string.format("[MC Receiver] Platform at %s (surface %s)",
-      platform.space_location.name, surface_index or "nil"))
-  else
-    log("[MC Receiver] Platform in transit")
   end
   globals.update_platform_location(platform.index, surface_index)
 
   -- Trigger an immediate signal update to connect to any towers on the current planet
   network_manager.on_tick_update()
-  log("[MC Receiver] Triggered immediate signal update")
 end
 
 --- Destroy a receiver combinator

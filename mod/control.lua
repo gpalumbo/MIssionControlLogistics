@@ -59,25 +59,6 @@ local function on_entity_built(event)
     return
   end
 
-  -- DEBUG: Log which event fired
-  local event_name = "UNKNOWN"
-  if event.name == defines.events.on_built_entity then
-    event_name = "on_built_entity"
-  elseif event.name == defines.events.on_robot_built_entity then
-    event_name = "on_robot_built_entity"
-  elseif event.name == defines.events.on_space_platform_built_entity then
-    event_name = "on_space_platform_built_entity"
-  elseif event.name == defines.events.script_raised_built then
-    event_name = "script_raised_built"
-  elseif event.name == defines.events.script_raised_revive then
-    event_name = "script_raised_revive"
-  end
-
-  if entity_name == "receiver-combinator" then
-    log(string.format("[MC Control] Event: %s, entity_type=%s, event.tags=%s",
-      event_name, entity.type, event.tags and "EXISTS" or "NIL"))
-  end
-
   local player_index = event.player_index
   local tags = event.tags  -- Blueprint/ghost tags from Factorio 2.0+
 
@@ -191,17 +172,9 @@ script.on_event(defines.events.on_player_setup_blueprint, function(event)
 
     -- Tag receiver combinators with their configuration
     if entity_name == "receiver-combinator" then
-      log(string.format("[MC Blueprint] Found receiver-combinator at bp_index=%d, is_ghost=%s",
-        blueprint_index, real_entity.type == "entity-ghost" and "YES" or "NO"))
-
       local config = globals.serialize_receiver_config(real_entity)
       if config then
-        log(string.format("[MC Blueprint] Serialized config: %d surfaces, hold_signal=%s",
-          #(config.configured_surfaces or {}), tostring(config.hold_signal_in_transit)))
         blueprint.set_blueprint_entity_tag(blueprint_index, "receiver_config", config)
-        log(string.format("[MC Blueprint] Saved config to blueprint at index %d", blueprint_index))
-      else
-        log(string.format("[MC Blueprint] WARNING: No config returned for bp_index=%d", blueprint_index))
       end
     end
     -- Mission Control towers don't have configuration yet, so skip tagging
