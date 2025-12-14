@@ -136,8 +136,9 @@ local function write_signals_to_combinator(combinator, signals, wire_color)
 
         section.set_slot(slot_index, {
           value = complete_signal,
-          min = count,
-          max = count  -- Set max = min for constant output
+          min = count
+          -- Note: max is omitted - it's only used for item logistics filters
+          -- and doesn't accept negative values. For circuit signals, only min is needed.
         })
         slot_index = slot_index + 1
       else
