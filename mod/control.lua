@@ -146,17 +146,9 @@ end)
 
 --- Handle blueprint creation (tag entities with configuration)
 script.on_event(defines.events.on_player_setup_blueprint, function(event)
-  local player = game.get_player(event.player_index)
-  if not player then return end
-
-  local blueprint = player.blueprint_to_setup
-  if not blueprint or not blueprint.valid_for_read then
-    blueprint = player.cursor_stack
-  end
-
-  if not blueprint or not blueprint.valid_for_read then
-    return
-  end
+  -- Get the blueprint item stack
+  local blueprint = event.record or event.stack
+  if not blueprint then return end
 
   -- Get the mapping (CRITICAL: provides blueprint_index -> real_entity mapping)
   local mapping = event.mapping.get()

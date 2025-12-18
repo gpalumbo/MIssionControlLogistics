@@ -257,12 +257,12 @@ local function create_input_signal_grid(parent, entity)
     desc.style.font_color = {r = 0.7, g = 0.7, b = 0.7}
     desc.style.bottom_margin = 4
 
-    -- Get input signals from entity
-    local signals = circuit_utils.get_input_signals(entity, "combinator_input")
+    -- Get input signals from entity (raw format)
+    local signals = circuit_utils.get_input_signals_raw(entity)
 
     -- Create sub-grids for red and green wires
-    gui_circuit_inputs.create_signal_sub_grid(frame, signals.red)
-    gui_circuit_inputs.create_signal_sub_grid(frame, signals.green)
+    gui_circuit_inputs.create_signal_sub_grid(frame, signals.red, "red")
+    gui_circuit_inputs.create_signal_sub_grid(frame, signals.green, "green")
 
     return frame
 end
@@ -316,9 +316,8 @@ local function create_output_signal_grid(parent, entity)
         if red_signals then
             for signal_id, count in pairs(red_signals) do
                 table.insert(output_signals.red, {
-                    signal_id = signal_id,
-                    count = count,
-                    wire_color = "red"
+                    signal = signal_id,
+                    count = count
                 })
             end
         end
@@ -333,17 +332,16 @@ local function create_output_signal_grid(parent, entity)
         if green_signals then
             for signal_id, count in pairs(green_signals) do
                 table.insert(output_signals.green, {
-                    signal_id = signal_id,
-                    count = count,
-                    wire_color = "green"
+                    signal = signal_id,
+                    count = count
                 })
             end
         end
     end
 
     -- Create sub-grids for red and green wires
-    gui_circuit_inputs.create_signal_sub_grid(frame, output_signals.red)
-    gui_circuit_inputs.create_signal_sub_grid(frame, output_signals.green)
+    gui_circuit_inputs.create_signal_sub_grid(frame, output_signals.red, "red")
+    gui_circuit_inputs.create_signal_sub_grid(frame, output_signals.green, "green")
 
     return frame
 end

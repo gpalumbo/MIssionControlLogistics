@@ -20,10 +20,12 @@
 --   - Global state access (pure library)
 --   - Mod-specific entity logic
 --
--- DEPENDENCIES: None (pure library)
+-- DEPENDENCIES: None (pure utility module)
 --
 -- COMPLEXITY: ~200 lines
 --------------------------------------------------------------------------------
+
+-- No external dependencies - pure utility module
 
 local circuit_utils = {}
 
@@ -215,9 +217,9 @@ end
 ---   - Returns 0 if no circuit connection
 ---
 --- TEST CASES:
----   get_signal_count(nil, red) => 0
----   get_signal_count(combinator, red) => 5 (if 5 signals present)
-function circuit_utils.get_signal_count(entity, wire_type)
+---   get_unique_signal_count(nil, red) => 0
+---   get_unique_signal_count(combinator, red) => 5 (if 5 signals present)
+function circuit_utils.get_unique_signal_count(entity, wire_type)
   local signals = circuit_utils.get_circuit_signals(entity, wire_type)
   if not signals then return 0 end
 
@@ -241,6 +243,138 @@ end
 function circuit_utils.has_any_circuit_connection(entity)
   return circuit_utils.has_circuit_connection(entity, defines.wire_type.red) or
          circuit_utils.has_circuit_connection(entity, defines.wire_type.green)
+end
+
+--- Check if entity has any circuit connections on specified connector (Factorio 2.0 API)
+--- This is the preferred method for checking connections - uses wire_connector_id directly
+--- @param entity LuaEntity
+--- @param connector_id defines.wire_connector_id|nil Optional connector to check (defaults to checking all combinator connectors)
+--- @return boolean
+function circuit_utils.has_circuit_connections(entity, connector_id)
+  if not entity or not entity.valid then
+    return false
+  end
+
+  -- If specific connector requested, check only that one
+  if connector_id then
+    local network = entity.get_circuit_network(connector_id)
+    return network ~= nil
+  end
+
+  -- Check all possible wire connectors for combinators
+  local connectors = {
+    defines.wire_connector_id.combinator_input_red,
+    defines.wire_connector_id.combinator_input_green,
+    defines.wire_connector_id.combinator_output_red,
+    defines.wire_connector_id.combinator_output_green
+  }
+
+  for _, conn_id in ipairs(connectors) do
+    local network = entity.get_circuit_network(conn_id)
+    if network then
+      return true
+    end
+  end
+
+  return false
+end
+
+--- Get all input signals from an entity's circuit connections (raw API format)
+--- Returns direct references to the API's signal arrays. Treat as read-only.
+--- Signal format: {signal = SignalID, count = int}
+--- @param entity LuaEntity The entity to read signals from
+--- @param wire_type defines.wire_type|nil Optional wire type filter (red or green)
+--- @return table {red = array of Signal, green = array of Signal}
+---
+--- This is the PREFERRED method for reading signals as it uses the raw Factorio format
+--- without transformation, making it more efficient and simpler.
+function circuit_utils.get_input_signals_raw(entity, wire_type)
+  local empty = {}
+  local result = {
+    red = empty,
+    green = empty
+  }
+
+  if not entity or not entity.valid then
+    return result
+  end
+
+  -- Get red wire signals (if not filtered to green only)
+  if not wire_type or wire_type == defines.wire_type.red then
+    local red_signals = entity.get_signals(defines.wire_connector_id.combinator_input_red)
+    if red_signals then
+      result.red = red_signals
+    end
+  end
+
+  -- Get green wire signals (if not filtered to red only)
+  if not wire_type or wire_type == defines.wire_type.green then
+    local green_signals = entity.get_signals(defines.wire_connector_id.combinator_input_green)
+    if green_signals then
+      result.green = green_signals
+    end
+  end
+
+  return result
+end
+
+--- Get the total count of a specific signal from input wires
+--- @param entity LuaEntity
+--- @param signal_id SignalID The signal to count {type, name}
+--- @param wire_type defines.wire_type|nil Optional wire type filter
+--- @return integer Total count of the signal
+---
+--- This searches for a specific signal across input wires and returns its summed count.
+--- Different from get_unique_signal_count which counts how many different signals exist.
+function circuit_utils.get_signal_count(entity, signal_id, wire_type)
+  if not entity or not entity.valid or not signal_id then
+    return 0
+  end
+
+  local total = 0
+  local signals = circuit_utils.get_input_signals_raw(entity, wire_type)
+
+  -- Sum from red wire
+  if not wire_type or wire_type == defines.wire_type.red then
+    for _, signal_data in ipairs(signals.red) do
+      if signal_data.signal.type == signal_id.type and signal_data.signal.name == signal_id.name then
+        total = total + signal_data.count
+      end
+    end
+  end
+
+  -- Sum from green wire
+  if not wire_type or wire_type == defines.wire_type.green then
+    for _, signal_data in ipairs(signals.green) do
+      if signal_data.signal.type == signal_id.type and signal_data.signal.name == signal_id.name then
+        total = total + signal_data.count
+      end
+    end
+  end
+
+  return total
+end
+
+--- Get count of signals on a specific wire connector
+--- @param entity LuaEntity
+--- @param connector_id defines.wire_connector_id (must include color, e.g., combinator_input_red)
+--- @return integer Number of unique signals
+function circuit_utils.get_signal_count_for_wire(entity, connector_id)
+  if not entity or not entity.valid then
+    return 0
+  end
+
+  local network = entity.get_circuit_network(connector_id)
+  if not network or not network.signals then
+    return 0
+  end
+
+  local count = 0
+  for _ in pairs(network.signals) do
+    count = count + 1
+  end
+
+  return count
 end
 
 --- Get all input signals from both red and green wires with metadata (Factorio 2.0 API)
@@ -383,166 +517,6 @@ function circuit_utils.get_filtered_signals(entity, wire_filter, connector_type)
   end
 
   return result
-end
-
---------------------------------------------------------------------------------
--- NETWORK TRAVERSAL (Factorio 2.0 LuaWireConnector API)
---------------------------------------------------------------------------------
-
---- Find all entities connected to a specific wire connector (Factorio 2.0 API)
---- Uses the new LuaWireConnector.connections property to traverse wire networks
---- @param entity LuaEntity: Starting entity
---- @param wire_connector_id defines.wire_connector_id: Which connector to traverse from
---- @param visited table: Internal - tracks visited connectors to prevent infinite loops
---- @return table: Set of entities {[unit_number] = LuaEntity}
----
---- FACTORIO 2.0 API:
----   - entity.get_wire_connector(wire_connector_id) returns LuaWireConnector
----   - wire_connector.connections returns array of WireConnection objects
----   - wire_connection.target is the connected LuaWireConnector
----   - wire_connector.owner is the entity owning the connector
----
---- EDGE CASES:
----   - Returns empty table if entity is invalid
----   - Returns empty table if connector doesn't exist
----   - Handles cyclic networks (prevents infinite recursion)
----   - Includes the starting entity in results
----
---- RECURSION:
----   - Uses visited table to track already-processed connectors
----   - Each connector identified by "unit_number_connector_id" key
----
---- TEST CASES:
----   find_entities_on_connector(nil, connector_id) => {}
----   find_entities_on_connector(isolated_entity, connector_id) => {entity}
----   find_entities_on_connector(networked_entity, connector_id) => {all connected entities}
-local function find_entities_on_connector(entity, wire_connector_id, visited)
-  visited = visited or {}
-  local entities = {}
-
-  if not entity or not entity.valid then
-    return entities
-  end
-
-  -- Get the wire connector (Factorio 2.0 API)
-  local connector = entity.get_wire_connector(wire_connector_id)
-  if not connector or not connector.valid then
-    return entities
-  end
-
-  -- Create unique key for this connector to prevent revisiting
-  local connector_key = string.format("%d_%d",
-    entity.unit_number or 0,
-    wire_connector_id)
-
-  if visited[connector_key] then
-    return entities  -- Already processed this connector
-  end
-  visited[connector_key] = true
-
-  -- Add the owner entity to results
-  if entity.unit_number then
-    entities[entity.unit_number] = entity
-  end
-
-  -- Traverse all connections from this connector
-  local connections = connector.connections
-  if not connections then
-    return entities
-  end
-
-  for _, wire_connection in pairs(connections) do
-    local target_connector = wire_connection.target
-    if target_connector and target_connector.valid then
-      local target_entity = target_connector.owner
-      if target_entity and target_entity.valid then
-        -- Recursively traverse from the target entity/connector
-        local target_connector_id = target_connector.wire_connector_id
-        local recursive_entities = find_entities_on_connector(
-          target_entity,
-          target_connector_id,
-          visited
-        )
-
-        -- Merge results
-        for unit_number, ent in pairs(recursive_entities) do
-          entities[unit_number] = ent
-        end
-      end
-    end
-  end
-
-  return entities
-end
-
---- Find all logistics-capable entities on a combinator's output network
---- @param combinator LuaEntity: The logistics combinator entity
---- @return table: Array of entities with logistics capability
----
---- PURPOSE:
----   Used by logistics combinator to find all entities it can control.
----   Traverses both red and green output wire networks recursively.
----
---- LOGISTICS CAPABILITY:
----   An entity has logistics capability if it has the logistic_sections property.
----   Examples: cargo-landing-pad, space-platform-hub, inserters, assemblers, etc.
----
---- EDGE CASES:
----   - Returns empty array if combinator is invalid
----   - Returns empty array if no output wires connected
----   - Deduplicates entities found on both red and green networks
----   - Filters out entities without logistics capability
----
---- FACTORIO 2.0 API:
----   - Uses defines.wire_connector_id.combinator_output_red/green
----   - Checks entity.logistic_sections for logistics capability
----
---- RETURN FORMAT:
----   Array of LuaEntity objects (not unit_numbers):
----   {LuaEntity1, LuaEntity2, ...}
----
---- TEST CASES:
----   find_logistics_entities_on_output(nil) => {}
----   find_logistics_entities_on_output(unwired_combinator) => {}
----   find_logistics_entities_on_output(combinator_wired_to_chest) => {} (chest has no logistics)
----   find_logistics_entities_on_output(combinator_wired_to_pad) => {pad_entity}
-function circuit_utils.find_logistics_entities_on_output(combinator)
-  if not combinator or not combinator.valid then
-    return {}
-  end
-
-  local all_entities = {}
-  local logistics_entities = {}
-
-  -- Check both red and green output connectors
-  local output_connectors = {
-    defines.wire_connector_id.combinator_output_red,
-    defines.wire_connector_id.combinator_output_green
-  }
-
-  for _, connector_id in ipairs(output_connectors) do
-    local entities_on_network = find_entities_on_connector(combinator, connector_id)
-
-    -- Merge into all_entities (deduplicates by unit_number)
-    for unit_number, entity in pairs(entities_on_network) do
-      all_entities[unit_number] = entity
-    end
-  end
-
-  -- Filter for logistics capability
-  for unit_number, entity in pairs(all_entities) do
-    if entity.valid then
-      -- Check if entity has a requester point (logistics capability)
-      -- This is the correct Factorio 2.0 API method
-      local requester_point = entity.get_requester_point()
-
-      if requester_point ~= nil then
-        table.insert(logistics_entities, entity)
-      end
-    end
-  end
-
-  return logistics_entities
 end
 
 --------------------------------------------------------------------------------

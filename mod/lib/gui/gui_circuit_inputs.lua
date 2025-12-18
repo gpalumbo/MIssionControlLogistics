@@ -39,10 +39,11 @@ end
 
 --- Create signal grid sub-display for red or green wire signals
 --- @param parent LuaGuiElement Parent element to add the scroll pane to
---- @param signals table Array of signal data with wire_color field
+--- @param signals table Array of signal data from API (format: {signal = SignalID, count = int})
+--- @param color string Wire color ("red" or "green") for display
 --- @param grid_table_name string|nil Optional name for the signal grid table element
 --- @return LuaGuiElement The created scroll pane
-function gui_circuit_inputs.create_signal_sub_grid(parent, signals, grid_table_name)
+function gui_circuit_inputs.create_signal_sub_grid(parent, signals, color, grid_table_name)
     -- Create scroll pane for signals
     local scroll = parent.add{
         type = "scroll-pane",
@@ -63,26 +64,27 @@ function gui_circuit_inputs.create_signal_sub_grid(parent, signals, grid_table_n
 
     -- Add signal buttons
     for _, sig_data in ipairs(signals) do
-        -- Validate signal_id structure
-        if not sig_data or not sig_data.signal_id then
+        -- Validate signal structure (API format uses 'signal' not 'signal_id')
+        if not sig_data or not sig_data.signal then
             goto continue
         end
 
-        if not sig_data.signal_id.name then
+        if not sig_data.signal.name then
             goto continue
         end
 
         -- Convert SignalID to sprite path
-        local sprite_path = signal_id_to_sprite(sig_data.signal_id)
+        local sprite_path = signal_id_to_sprite(sig_data.signal)
         if not sprite_path then
             goto continue
         end
 
         -- Determine color indicator sprite based on wire color
         local slot_style
-        if sig_data.wire_color == "red" then
+        local c = sig_data.wire_color or color or "none"
+        if c == "red" then
             slot_style = "red_slot"
-        elseif sig_data.wire_color == "green" then
+        elseif c == "green" then
             slot_style = "green_slot"
         else
             slot_style = "slot_button"
@@ -94,8 +96,8 @@ function gui_circuit_inputs.create_signal_sub_grid(parent, signals, grid_table_n
             sprite = sprite_path,
             number = sig_data.count,
             style = slot_style,
-            quality = sig_data.signal_id.quality,
-            tags = { signal_sel = sig_data.signal_id }
+            quality = sig_data.signal.quality,
+            tags = { signal_sel = sig_data.signal }
         })
 
         ::continue::
@@ -118,7 +120,7 @@ end
 --- @param entity LuaEntity The combinator entity to read signals from
 --- @param signal_grid_frame LuaGuiElement|nil Optional existing frame to reuse
 --- @param frame_name string Name for the signal grid frame element
---- @param connector_type string|nil Optional connector type (defaults to "combinator_input")
+--- @param connector_type string|nil Optional connector type (defaults to "combinator_input") - unused, kept for API compatibility
 --- @return table References to created elements {signal_grid_frame = LuaGuiElement}
 function gui_circuit_inputs.create_signal_grid(parent, entity, signal_grid_frame, frame_name, connector_type)
     -- Create frame for signal grid (or reuse existing)
@@ -138,12 +140,12 @@ function gui_circuit_inputs.create_signal_grid(parent, entity, signal_grid_frame
     }
     signal_header.style.bottom_margin = 4
 
-    -- Get input signals from entity (defaults to "combinator_input" if connector_type not specified)
-    local signals = circuit_utils.get_input_signals(entity, connector_type)
+    -- Get input signals from entity using raw format (preferred)
+    local signals = circuit_utils.get_input_signals_raw(entity)
 
     -- Create sub-grids for red and green wires
-    gui_circuit_inputs.create_signal_sub_grid(grid_frame, signals.red)
-    gui_circuit_inputs.create_signal_sub_grid(grid_frame, signals.green)
+    gui_circuit_inputs.create_signal_sub_grid(grid_frame, signals.red, "red")
+    gui_circuit_inputs.create_signal_sub_grid(grid_frame, signals.green, "green")
 
     return {signal_grid_frame = grid_frame}
 end
